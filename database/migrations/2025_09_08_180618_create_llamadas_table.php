@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('cliente_id')->constrained('clientes')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // Usuario que realizó la llamada
-            $table->foreignId('estado_llamada_id')->constrained('estados_llamada')->onDelete('restrict');
+            $table->foreignId('estado_llamada_id')->constrained('estados_llamada');
             $table->string('telefono_utilizado')->nullable(); // Teléfono específico que se utilizó
             $table->text('observaciones')->nullable(); // Comentarios adicionales del usuario
             $table->dateTime('fecha_llamada'); // Fecha y hora exacta de la llamada

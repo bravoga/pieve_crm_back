@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('cliente_id')->constrained('clientes')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // Llamador asignado
-            $table->foreignId('asignado_por')->constrained('users')->onDelete('restrict'); // Admin que asignó
+            $table->foreignId('asignado_por')->constrained('users'); // Admin que asignó
             $table->string('periodo', 7); // Período para el que se asigna (YYYY-MM)
             $table->enum('estado', ['asignado', 'en_progreso', 'completado', 'cancelado'])->default('asignado');
             $table->dateTime('fecha_asignacion');
