@@ -30,11 +30,7 @@ class ImportUsuario extends Command
     public function handle()
     {
         Artisan::call('ldap:import users gabrielbravo@grupopieve.com --no-interaction');
-        Artisan::call('ldap:import users natalialuna@grupopieve.com --no-interaction');
-        Artisan::call('ldap:import users federicosuppa@grupopieve.com --no-interaction');
-        Artisan::call('ldap:import users mariogonzalez@grupopieve.com --no-interaction');
-        Artisan::call('ldap:import users sergiolopez@grupopieve.com --no-interaction');
-        Artisan::call('ldap:import users mariajosevivas@grupopieve.com --no-interaction');
+
         $this->info('Usuario  importado exitosamente.');
 
         return 0;
