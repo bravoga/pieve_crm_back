@@ -13,6 +13,17 @@ use Illuminate\Support\Facades\Log;
 class LdapController extends Controller
 {
     /**
+     * Generar un PIN único de 6 dígitos
+     */
+    private function generateUniquePin(): string
+    {
+        do {
+            $pin = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        } while (User::where('pin', $pin)->exists());
+        
+        return $pin;
+    }
+    /**
      * Buscar usuarios en LDAP
      */
     public function searchUsers(Request $request): JsonResponse
@@ -213,6 +224,7 @@ class LdapController extends Controller
                         $newUser->name = $cleanUtf8($ldapUser->getFirstAttribute('displayName')) ?: $cleanUtf8($ldapUser->getFirstAttribute('cn'));
                         $newUser->email = $email; // Usar el email genérico
                         $newUser->username = $username;
+                        $newUser->pin = $this->generateUniquePin(); // Generar PIN aleatorio único
                         $newUser->role = 'llamador';
                         $newUser->is_active = true;
                         $newUser->is_blocked = false;
@@ -258,8 +270,14 @@ class LdapController extends Controller
                     // Asignar rol por defecto si no tiene
                     if (!$importedUser->role) {
                         $importedUser->role = 'llamador';
-                        $importedUser->save();
                     }
+                    
+                    // Asignar PIN aleatorio si no tiene
+                    if (!$importedUser->pin) {
+                        $importedUser->pin = $this->generateUniquePin();
+                    }
+                    
+                    $importedUser->save();
                     
                     return response()->json([
                         'message' => 'Usuario importado exitosamente',
