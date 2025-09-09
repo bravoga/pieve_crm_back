@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\GeocodingController;
 use App\Http\Controllers\LlamadaController;
 use App\Http\Controllers\AsignacionLlamadaController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\LdapController;
 // use App\Http\Controllers\Api\RutaController;
 // use App\Http\Controllers\Api\AsignacionController;
 
@@ -93,6 +95,24 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Cobradores
     Route::get('cobradores', [AuthController::class, 'cobradores']);
+    
+    // Gestión de usuarios (solo admin)
+    Route::prefix('users')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::get('roles', [UserController::class, 'getRoles']);
+        Route::get('{user}', [UserController::class, 'show']);
+        Route::put('{user}', [UserController::class, 'update']);
+        Route::post('{user}/toggle-active', [UserController::class, 'toggleActive']);
+        Route::post('{user}/toggle-blocked', [UserController::class, 'toggleBlocked']);
+    });
+    
+    // LDAP (solo admin)
+    Route::prefix('ldap')->group(function () {
+        Route::post('search', [LdapController::class, 'searchUsers']);
+        Route::post('import', [LdapController::class, 'importUser']);
+        Route::post('import-multiple', [LdapController::class, 'importMultipleUsers']);
+        Route::post('sync/{user}', [LdapController::class, 'syncUser']);
+    });
     
     // Gestión de llamadas telefónicas
     Route::prefix('llamadas')->group(function () {

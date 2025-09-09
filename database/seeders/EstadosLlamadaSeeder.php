@@ -14,11 +14,12 @@ class EstadosLlamadaSeeder extends Seeder
     public function run(): void
     {
         $estados = [
+
             [
-                'nombre' => 'No Contesta',
-                'descripcion' => 'El teléfono no es contestado',
-                'color' => '#ffc107',
-                'orden' => 1
+                'nombre' => 'Sin Contacto',
+                'descripcion' => 'El número no corresponde al cliente',
+                'color' => '#dc3545',
+                'orden' => 2
             ],
             [
                 'nombre' => 'Número Equivocado',
@@ -39,7 +40,7 @@ class EstadosLlamadaSeeder extends Seeder
                 'orden' => 4
             ],
             [
-                'nombre' => 'Contactado',
+                'nombre' => 'No le interesa',
                 'descripcion' => 'Se logró contactar al cliente exitosamente',
                 'color' => '#17a2b8',
                 'orden' => 5
@@ -55,7 +56,21 @@ class EstadosLlamadaSeeder extends Seeder
                 'descripcion' => 'Cliente manifiesta no poder pagar actualmente',
                 'color' => '#6f42c1',
                 'orden' => 7
-            ]
+            ],
+
+            [
+            'nombre' => 'A Visitar',
+            'descripcion' => 'Cliente manifiesta no poder pagar actualmente',
+            'color' => '#6f42c1',
+            'orden' => 7
+        ],
+
+            [
+            'nombre' => 'Nuevo Afiliado',
+            'descripcion' => 'Cliente manifiesta no poder pagar actualmente',
+            'color' => '#6f42c1',
+            'orden' => 7
+        ]
         ];
 
         foreach ($estados as $estado) {

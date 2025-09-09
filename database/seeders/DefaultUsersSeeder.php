@@ -25,7 +25,7 @@ class DefaultUsersSeeder extends Seeder
                 'activo' => true
             ]
         );
-
+        /*
         // Cobradores de ejemplo
         $cobradores = [
             [
@@ -95,9 +95,11 @@ class DefaultUsersSeeder extends Seeder
             );
         }
 
+
         $this->command->info('Usuarios por defecto creados:');
         $this->command->info('- Admin: admin@pieve.com / admin123 (PIN: 000000)');
         $this->command->info('- Cobradores: {name}@pieve.com / cobrador123');
         $this->command->info('- Llamadores: {name}@pieve.com / llamador123');
+             */
     }
 }

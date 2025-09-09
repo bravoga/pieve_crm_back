@@ -11,8 +11,9 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->string('pin', 6)->unique()->nullable()->after('email');
             $table->enum('role', ['admin', 'cobrador', 'llamador'])->default('cobrador')->after('pin');
-            $table->boolean('is_active')->default(true)->after('role');
-            
+            // La columna is_active ya existe en la migración inicial LDAP
+            // $table->boolean('is_active')->default(true)->after('role');
+
             $table->index('pin');
             $table->index('role');
         });
@@ -23,7 +24,8 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropIndex(['pin']);
             $table->dropIndex(['role']);
-            $table->dropColumn(['pin', 'role', 'is_active']);
+            $table->dropColumn(['pin', 'role']);
+            // No eliminar is_active porque está en la migración inicial
         });
     }
 };

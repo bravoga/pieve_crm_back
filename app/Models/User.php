@@ -7,11 +7,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use LdapRecord\Laravel\Auth\LdapAuthenticatable;
+use LdapRecord\Laravel\Auth\AuthenticatesWithLdap;
 
-class User extends Authenticatable
+
+class User extends Authenticatable implements LdapAuthenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, AuthenticatesWithLdap;
 
     /**
      * The attributes that are mass assignable.
@@ -25,6 +28,14 @@ class User extends Authenticatable
         'pin',
         'role',
         'activo',
+        'username',
+        'guid',
+        'domain',
+        'is_admin',
+        'is_active',
+        'is_blocked',
+        'failed_login_attempts',
+        'last_login_at',
     ];
 
     /**
@@ -70,42 +81,42 @@ class User extends Authenticatable
     {
         return $this->role === 'cobrador';
     }
-    
+
     public function isLlamador()
     {
         return $this->role === 'llamador';
     }
-    
+
     public function llamadas()
     {
         return $this->hasMany(Llamada::class);
     }
-    
+
     public function asignacionesLlamadas()
     {
         return $this->hasMany(AsignacionLlamada::class);
     }
-    
+
     public function asignacionesCreadas()
     {
         return $this->hasMany(AsignacionLlamada::class, 'asignado_por');
     }
-    
+
     public function scopeActivos($query)
     {
         return $query->where('activo', true);
     }
-    
+
     public function scopeByRole($query, $role)
     {
         return $query->where('role', $role);
     }
-    
+
     public function scopeLlamadores($query)
     {
         return $query->where('role', 'llamador')->where('activo', true);
     }
-    
+
     public function scopeCobradores($query)
     {
         return $query->where('role', 'cobrador')->where('activo', true);

@@ -15,7 +15,91 @@ class AuthController extends Controller
     /**
      * Inicio de sesión con email y password
      */
-    public function login(Request $request): JsonResponse
+
+
+    public function login(Request $request)
+    {
+        $request->validate([
+            'username' => 'required',
+            'password' => 'required',
+            'device' => 'required',
+        ]);
+
+        $credentials = ['samaccountname'=>$request->username, 'password'=>$request->password];
+
+        $user = User::where('username', $credentials['samaccountname'])->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no encontrado'], 404);
+        }
+
+        if ($user->is_blocked) {
+            return response()->json(['message' => 'Usuario bloqueado, comunicarse con sistemas'], 403);
+        }
+
+        if (Auth::attempt($credentials)) {
+            // Autenticación exitosa
+            $user->update(['failed_login_attempts' => 0]);
+            $token = $user->createToken('sanLuis545')->plainTextToken;
+            $user->token = $token;
+
+            /*
+            $log = new \App\Models\Log();
+            $log->user_id = $user->id;
+            $log->tipo_id = 1;
+            $log->observaciones = '';
+            $log->fecha = Carbon::now();
+            $log->ip = $request->ip();
+            $log->navegador = $request->device;
+            $log->save();
+            */
+
+            $nameParts = explode(' ', $user->name);
+            $user->nombre = $nameParts[0];
+
+
+            // Agregar avatar genérico si no tiene foto de perfil
+            if (empty($user->profile_photo_path)) {
+                $user->profile_photo_path = 'avatars/avatar.png';
+                $user->profile_photo_url = url('storage/avatars/avatar.png');
+            } else {
+                $user->profile_photo_url = url('storage/' . $user->profile_photo_path);
+            }
+
+            // Revocar tokens anteriores del usuario
+            $user->tokens()->delete();
+
+            // Crear nuevo token
+            $token = $user->createToken('api-token', ['*'], now()->addDays(30))->plainTextToken;
+
+            return response()->json([
+                'message' => 'Inicio de sesión exitoso',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role ?? 'cobrador',
+                    'active' => $user->activo,
+                ]
+            ]);
+
+
+        } else {
+            // Autenticación fallida
+            $user->increment('failed_login_attempts');
+
+            if ($user->failed_login_attempts >= 5) {
+                $user->update(['is_blocked' => 1]);
+            }
+
+            return response()->json(['message' => 'Credenciales incorrectas'], 401);
+        }
+
+    }
+
+
+    public function login2(Request $request): JsonResponse
     {
         $request->validate([
             'email' => 'required|email',
