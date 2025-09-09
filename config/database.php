@@ -110,6 +110,17 @@ return [
             'trust_server_certificate' => true,
 
         ],
+        'sqlCobranzas' => [
+            'driver' => 'sqlsrv',
+            'host' => '172.16.20.2',
+            'port' => '1433',
+            'database' => 'Cobranzas',
+            'username' => 'sa',
+            'password' => 'sa2017$',
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+        ],
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',
