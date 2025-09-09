@@ -12,6 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Primero eliminar el índice si existe
+        try {
+            DB::statement("DROP INDEX users_role_index ON users");
+        } catch (\Exception $e) {
+            // Si no existe el índice, continuar
+        }
+        
         Schema::table('users', function (Blueprint $table) {
             // En SQL Server, cambiar VARCHAR para permitir 'llamador'
             // Primero verificar si la columna role existe y su tipo actual
@@ -28,6 +35,13 @@ return new class extends Migration
                 $table->index('activo');
             }
         });
+        
+        // Recrear el índice en la columna role
+        try {
+            DB::statement("CREATE INDEX users_role_index ON users (role)");
+        } catch (\Exception $e) {
+            // Si hay error, continuar
+        }
         
         // Agregar constraint check para validar los valores permitidos
         try {
@@ -53,14 +67,26 @@ return new class extends Migration
             // Si no existe la constraint, continuar
         }
         
+        // Eliminar el índice antes de modificar la columna
+        try {
+            DB::statement("DROP INDEX users_role_index ON users");
+        } catch (\Exception $e) {
+            // Si no existe el índice, continuar
+        }
+        
         Schema::table('users', function (Blueprint $table) {
-            // Revertir la columna role (no es necesario en SQL Server)
-            
             // Eliminar campo activo si existe
             if (Schema::hasColumn('users', 'activo')) {
                 $table->dropColumn('activo');
             }
         });
+        
+        // Recrear el índice
+        try {
+            DB::statement("CREATE INDEX users_role_index ON users (role)");
+        } catch (\Exception $e) {
+            // Si hay error, continuar
+        }
         
         // Agregar nuevo constraint solo para admin y cobrador
         try {
