@@ -39,54 +39,49 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Eliminar todos los constraints asociados a la columna tipo_contacto
+        // Eliminar constraint específico que aparece en el error
         try {
-            $constraints = DB::select("
-                SELECT CONSTRAINT_NAME 
-                FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS 
-                WHERE CONSTRAINT_NAME LIKE '%tipo_c%' OR CONSTRAINT_NAME LIKE '%clientes%'
-            ");
-            
-            foreach ($constraints as $constraint) {
-                try {
-                    DB::statement("ALTER TABLE clientes DROP CONSTRAINT [{$constraint->CONSTRAINT_NAME}]");
-                } catch (\Exception $e) {
-                    // Continuar con el siguiente constraint
-                }
-            }
+            DB::statement("ALTER TABLE clientes DROP CONSTRAINT CK__clientes__tipo_c__01142BA1");
         } catch (\Exception $e) {
-            // Si hay error, continuar
+            // Si no existe, continuar
         }
         
-        // Método alternativo: eliminar constraint por columna
+        // Eliminar nuestro constraint personalizado
+        try {
+            DB::statement("ALTER TABLE clientes DROP CONSTRAINT chk_clientes_tipo_contacto");
+        } catch (\Exception $e) {
+            // Si no existe la constraint, continuar
+        }
+        
+        // Método dinámico para encontrar y eliminar todos los constraints de check en la columna
         try {
             DB::statement("
                 DECLARE @sql NVARCHAR(MAX) = ''
-                SELECT @sql = @sql + 'ALTER TABLE clientes DROP CONSTRAINT ' + QUOTENAME(name) + ';'
+                SELECT @sql = @sql + 'ALTER TABLE clientes DROP CONSTRAINT ' + QUOTENAME(name) + '; '
                 FROM sys.check_constraints 
                 WHERE parent_object_id = OBJECT_ID('clientes') 
                 AND definition LIKE '%tipo_contacto%'
-                EXEC sp_executesql @sql
+                
+                IF LEN(@sql) > 0
+                    EXEC sp_executesql @sql
             ");
         } catch (\Exception $e) {
             // Si hay error, continuar
         }
         
-        // Eliminar índice antes de eliminar la columna
+        // Eliminar índice
         try {
             DB::statement("DROP INDEX clientes_tipo_contacto_index ON clientes");
         } catch (\Exception $e) {
             // Si no existe el índice, continuar
         }
         
-        // Finalmente eliminar la columna
+        // Eliminar la columna usando SQL directo
         try {
             DB::statement("ALTER TABLE clientes DROP COLUMN tipo_contacto");
         } catch (\Exception $e) {
-            // Si hay error, intentar con Laravel
-            Schema::table('clientes', function (Blueprint $table) {
-                $table->dropColumn('tipo_contacto');
-            });
+            // Si falla SQL directo, no usar Laravel porque también falla
+            \Log::error("No se pudo eliminar la columna tipo_contacto: " . $e->getMessage());
         }
     }
 };
