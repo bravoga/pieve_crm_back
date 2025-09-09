@@ -102,6 +102,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('usuarios-llamadores', [LlamadaController::class, 'usuariosLlamadores']);
         Route::get('periodo-actual', [LlamadaController::class, 'periodoActual']);
         Route::get('clientes-para-llamar', [LlamadaController::class, 'clientesParaLlamar']);
+        
+        // Endpoints específicos para llamadores
+        Route::get('mis-clientes-para-llamar', [LlamadaController::class, 'misClientesParaLlamar']);
+        Route::get('mis-llamadas', [LlamadaController::class, 'misLlamadas']);
+        Route::get('mis-estadisticas', [LlamadaController::class, 'misEstadisticas']);
+        
+        // Endpoints específicos para administradores
+        Route::get('estadisticas-generales', [LlamadaController::class, 'estadisticasGenerales']);
+        
+        // Endpoint temporal para debugear datos
+        Route::get('debug-datos', [LlamadaController::class, 'debugDatos']);
+        
+        // Endpoint temporal para crear datos de prueba
+        Route::post('crear-llamadas-prueba', [LlamadaController::class, 'crearLlamadasPrueba']);
+        
         Route::post('tomar-cliente', [LlamadaController::class, 'tomarCliente']);
         Route::get('{llamada}', [LlamadaController::class, 'show']);
         Route::put('{llamada}', [LlamadaController::class, 'update']);

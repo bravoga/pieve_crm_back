@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Llamada;
 use App\Models\EstadoLlamada;
 use App\Models\Configuracion;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -245,5 +246,441 @@ class LlamadaController extends Controller
         }
         
         return response()->json(['cliente' => $cliente]);
+    }
+    
+    /**
+     * Obtener clientes para llamar específicamente para el usuario llamador logueado
+     * Este endpoint siempre filtra por el usuario actual, sin pasar user_id
+     */
+    public function misClientesParaLlamar(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        
+        // Verificar que el usuario sea un llamador
+        if (!$user->isLlamador()) {
+            return response()->json([
+                'message' => 'Solo los llamadores pueden acceder a este endpoint'
+            ], 403);
+        }
+        
+        $periodoDefecto = Configuracion::obtenerValor('periodo_actual', now()->format('Y-m'));
+        $periodo = $request->has('periodo') ? $request->periodo : $periodoDefecto;
+        
+        // Debug logging
+        \Log::info('Debug mis-clientes-para-llamar', [
+            'user_id' => $user->id,
+            'user_role' => $user->role,
+            'periodo' => $periodo,
+            'filtros' => $request->only(['buscar', 'estado_llamada', 'per_page', 'page'])
+        ]);
+        
+        // Primero, veamos cuántas asignaciones tiene el usuario
+        $totalAsignaciones = \App\Models\AsignacionLlamada::where('user_id', $user->id)
+            ->where('periodo', $periodo)
+            ->whereIn('estado', ['asignado', 'en_progreso'])
+            ->count();
+            
+        \Log::info('Total asignaciones del usuario', ['count' => $totalAsignaciones]);
+        
+        // Veamos cuántas llamadas ha hecho el usuario (en total, no por período de fecha)
+        $totalLlamadas = \App\Models\Llamada::where('user_id', $user->id)->count();
+        \Log::info('Total llamadas del usuario (todas)', ['count' => $totalLlamadas]);
+        
+        // Llamadas del usuario para clientes de este período específico
+        $llamadasClientesPeriodo = \App\Models\Llamada::where('user_id', $user->id)
+            ->whereHas('cliente', function($q) use ($periodo) {
+                $q->where('periodo', $periodo);
+            })
+            ->count();
+        \Log::info('Llamadas del usuario para clientes del período', ['periodo' => $periodo, 'count' => $llamadasClientesPeriodo]);
+        
+        $query = Cliente::with(['llamadas' => function($q) {
+            $q->latest('fecha_llamada')->limit(1);
+        }]);
+        
+        // Filtrar SIEMPRE por los clientes asignados al usuario logueado
+        $query->whereHas('asignacionLlamada', function($q) use ($user, $periodo) {
+            $q->where('user_id', $user->id)
+              ->where('periodo', $periodo)
+              ->whereIn('estado', ['asignado', 'en_progreso', 'completado']); // Incluir completados
+        });
+        
+        // Contar clientes base antes de filtros adicionales
+        $clientesBase = $query->count();
+        \Log::info('Clientes asignados base', ['count' => $clientesBase]);
+        
+        if ($request->has('buscar') && !empty($request->buscar)) {
+            $query->buscar($request->buscar);
+        }
+        
+        // Contar antes de aplicar filtro de estado
+        $clientesAntesDelFiltro = $query->count();
+        \Log::info('Clientes antes del filtro de estado', ['count' => $clientesAntesDelFiltro]);
+        
+        // Filtro por estado de llamada (si fue llamado o está pendiente)
+        // Usar la misma lógica que en clientesParaLlamar() para consistencia
+        if ($request->filled('estado_llamada')) {
+            \Log::info('Aplicando filtro de estado', ['estado' => $request->estado_llamada, 'usuario' => $user->id, 'periodo' => $periodo]);
+            
+            if ($request->estado_llamada === 'llamado') {
+                // Solo clientes que tienen al menos una llamada del usuario actual
+                $query->whereHas('llamadas', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+                \Log::info('Filtro aplicado: clientes CON llamadas del usuario');
+            } elseif ($request->estado_llamada === 'pendiente') {
+                // Solo clientes que NO tienen llamadas del usuario actual
+                $query->whereDoesntHave('llamadas', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+                \Log::info('Filtro aplicado: clientes SIN llamadas del usuario');
+            }
+            
+            // Contar después del filtro
+            $clientesDespuesDelFiltro = $query->count();
+            \Log::info('Clientes después del filtro de estado', ['count' => $clientesDespuesDelFiltro]);
+        } else {
+            \Log::info('Sin filtro de estado aplicado');
+        }
+        
+        $perPage = $request->get('per_page', 20);
+        $clientes = $query->paginate($perPage);
+        
+        \Log::info('Resultado final', ['total' => $clientes->total()]);
+        
+        return response()->json($clientes);
+    }
+    
+    /**
+     * Obtener el historial de llamadas específicamente del usuario llamador logueado
+     */
+    public function misLlamadas(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        
+        // Verificar que el usuario sea un llamador
+        if (!$user->isLlamador()) {
+            return response()->json([
+                'message' => 'Solo los llamadores pueden acceder a este endpoint'
+            ], 403);
+        }
+        
+        $query = Llamada::with(['cliente', 'estadoLlamada'])
+            ->where('user_id', $user->id); // Filtrar SIEMPRE por el usuario logueado
+        
+        if ($request->has('periodo')) {
+            $query->byPeriodo($request->periodo);
+        }
+        
+        if ($request->has('fecha')) {
+            $query->byFecha($request->fecha);
+        }
+        
+        if ($request->has('estado_llamada_id')) {
+            $query->where('estado_llamada_id', $request->estado_llamada_id);
+        }
+        
+        $llamadas = $query->latest('fecha_llamada')->paginate(20);
+        
+        return response()->json($llamadas);
+    }
+    
+    /**
+     * Obtener estadísticas de progreso del usuario llamador para el período
+     */
+    public function misEstadisticas(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        
+        // Verificar que el usuario sea un llamador
+        if (!$user->isLlamador()) {
+            return response()->json([
+                'message' => 'Solo los llamadores pueden acceder a este endpoint'
+            ], 403);
+        }
+        
+        $periodoDefecto = Configuracion::obtenerValor('periodo_actual', now()->format('Y-m'));
+        $periodo = $request->has('periodo') ? $request->periodo : $periodoDefecto;
+        
+        // Total de clientes asignados al usuario en el período
+        $totalAsignados = Cliente::whereHas('asignacionLlamada', function($q) use ($user, $periodo) {
+            $q->where('user_id', $user->id)
+              ->where('periodo', $periodo)
+              ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+        })->count();
+        
+        // Clientes llamados (con al menos una llamada)
+        $clientesLlamados = Cliente::whereHas('asignacionLlamada', function($q) use ($user, $periodo) {
+                $q->where('user_id', $user->id)
+                  ->where('periodo', $periodo)
+                  ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+            })
+            ->whereHas('llamadas', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->count();
+            
+        // Clientes pendientes (sin llamadas)
+        $clientesPendientes = $totalAsignados - $clientesLlamados;
+        
+        // Total de llamadas realizadas por el usuario para clientes del período
+        $totalLlamadas = Llamada::where('user_id', $user->id)
+            ->whereHas('cliente', function($q) use ($periodo) {
+                $q->where('periodo', $periodo);
+            })->count();
+            
+        // Porcentaje de progreso
+        $porcentajeProgreso = $totalAsignados > 0 ? round(($clientesLlamados / $totalAsignados) * 100, 1) : 0;
+        
+        // Llamadas por día (últimos 7 días)
+        $llamadasPorDia = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $fecha = now()->subDays($i)->format('Y-m-d');
+            $count = Llamada::where('user_id', $user->id)
+                ->whereHas('cliente', function($q) use ($periodo) {
+                    $q->where('periodo', $periodo);
+                })
+                ->whereDate('fecha_llamada', $fecha)
+                ->count();
+                
+            $llamadasPorDia[] = [
+                'fecha' => $fecha,
+                'llamadas' => $count
+            ];
+        }
+        
+        return response()->json([
+            'periodo' => $periodo,
+            'usuario' => [
+                'id' => $user->id,
+                'nombre' => $user->name
+            ],
+            'resumen' => [
+                'total_asignados' => $totalAsignados,
+                'clientes_llamados' => $clientesLlamados,
+                'clientes_pendientes' => $clientesPendientes,
+                'total_llamadas' => $totalLlamadas,
+                'porcentaje_progreso' => $porcentajeProgreso
+            ],
+            'llamadas_por_dia' => $llamadasPorDia
+        ]);
+    }
+    
+    /**
+     * Obtener estadísticas generales para administradores
+     */
+    public function estadisticasGenerales(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        
+        // Verificar que el usuario sea administrador
+        if (!$user->isAdmin()) {
+            return response()->json([
+                'message' => 'Solo los administradores pueden acceder a este endpoint'
+            ], 403);
+        }
+        
+        $periodoDefecto = Configuracion::obtenerValor('periodo_actual', now()->format('Y-m'));
+        $periodo = $request->has('periodo') ? $request->periodo : $periodoDefecto;
+        
+        // Total de clientes asignados en el período
+        $totalAsignados = Cliente::whereHas('asignacionLlamada', function($q) use ($periodo) {
+            $q->where('periodo', $periodo)
+              ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+        })->count();
+        
+        // Clientes llamados (con al menos una llamada)
+        $clientesLlamados = Cliente::whereHas('asignacionLlamada', function($q) use ($periodo) {
+                $q->where('periodo', $periodo)
+                  ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+            })
+            ->whereHas('llamadas')
+            ->count();
+            
+        // Clientes pendientes (sin llamadas)
+        $clientesPendientes = $totalAsignados - $clientesLlamados;
+        
+        // Total de llamadas realizadas para el período
+        $totalLlamadas = Llamada::whereHas('cliente', function($q) use ($periodo) {
+            $q->where('periodo', $periodo);
+        })->count();
+        
+        // Calcular porcentaje de progreso
+        $porcentajeProgreso = $totalAsignados > 0 ? round(($clientesLlamados / $totalAsignados) * 100, 1) : 0;
+        
+        // Estadísticas por llamador
+        $estadisticasPorLlamador = User::where('role', 'llamador')
+            ->withCount([
+                'asignacionesLlamadas as total_asignados' => function($q) use ($periodo) {
+                    $q->where('periodo', $periodo)
+                      ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+                },
+                'llamadas as total_llamadas' => function($q) use ($periodo) {
+                    $q->whereHas('cliente', function($subQ) use ($periodo) {
+                        $subQ->where('periodo', $periodo);
+                    });
+                }
+            ])
+            ->having('total_asignados', '>', 0)
+            ->get()
+            ->map(function($llamador) {
+                $clientesLlamados = Cliente::whereHas('asignacionLlamada', function($q) use ($llamador) {
+                        $q->where('user_id', $llamador->id)
+                          ->where('periodo', request('periodo', now()->format('Y-m')))
+                          ->whereIn('estado', ['asignado', 'en_progreso', 'completado']);
+                    })
+                    ->whereHas('llamadas', function($q) use ($llamador) {
+                        $q->where('user_id', $llamador->id);
+                    })->count();
+                    
+                $porcentaje = $llamador->total_asignados > 0 ? 
+                    round(($clientesLlamados / $llamador->total_asignados) * 100, 1) : 0;
+                    
+                return [
+                    'id' => $llamador->id,
+                    'nombre' => $llamador->name,
+                    'total_asignados' => $llamador->total_asignados,
+                    'clientes_llamados' => $clientesLlamados,
+                    'clientes_pendientes' => $llamador->total_asignados - $clientesLlamados,
+                    'total_llamadas' => $llamador->total_llamadas,
+                    'porcentaje_progreso' => $porcentaje
+                ];
+            });
+        
+        return response()->json([
+            'periodo' => $periodo,
+            'resumen_general' => [
+                'total_asignados' => $totalAsignados,
+                'clientes_llamados' => $clientesLlamados,
+                'clientes_pendientes' => $clientesPendientes,
+                'total_llamadas' => $totalLlamadas,
+                'porcentaje_progreso' => $porcentajeProgreso
+            ],
+            'estadisticas_por_llamador' => $estadisticasPorLlamador
+        ]);
+    }
+    
+    /**
+     * Endpoint temporal para debugear datos
+     */
+    public function debugDatos(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $periodo = $request->get('periodo', '2025-08');
+        
+        // Información del usuario
+        $userData = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'role' => $user->role,
+            'isLlamador' => $user->isLlamador()
+        ];
+        
+        // Contar asignaciones del usuario
+        $totalAsignaciones = \App\Models\AsignacionLlamada::where('user_id', $user->id)
+            ->where('periodo', $periodo)
+            ->count();
+            
+        $asignacionesActivas = \App\Models\AsignacionLlamada::where('user_id', $user->id)
+            ->where('periodo', $periodo)
+            ->whereIn('estado', ['asignado', 'en_progreso'])
+            ->count();
+            
+        // Contar llamadas del usuario en el período
+        $totalLlamadas = \App\Models\Llamada::where('user_id', $user->id)
+            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo])
+            ->count();
+            
+        // Obtener algunas asignaciones de ejemplo
+        $asignacionesEjemplo = \App\Models\AsignacionLlamada::where('user_id', $user->id)
+            ->where('periodo', $periodo)
+            ->with('cliente:id,nombre,certi')
+            ->limit(5)
+            ->get();
+            
+        // Obtener algunas llamadas de ejemplo
+        $llamadasEjemplo = \App\Models\Llamada::where('user_id', $user->id)
+            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo])
+            ->with('cliente:id,nombre,certi')
+            ->limit(5)
+            ->get();
+        
+        return response()->json([
+            'user' => $userData,
+            'periodo' => $periodo,
+            'counts' => [
+                'total_asignaciones' => $totalAsignaciones,
+                'asignaciones_activas' => $asignacionesActivas,
+                'total_llamadas' => $totalLlamadas
+            ],
+            'samples' => [
+                'asignaciones' => $asignacionesEjemplo,
+                'llamadas' => $llamadasEjemplo
+            ]
+        ]);
+    }
+    
+    /**
+     * Crear algunas llamadas de prueba para el usuario actual
+     */
+    public function crearLlamadasPrueba(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $periodo = $request->get('periodo', '2025-08');
+        $cantidad = $request->get('cantidad', 5);
+        
+        if (!$user->isLlamador()) {
+            return response()->json([
+                'message' => 'Solo los llamadores pueden crear llamadas de prueba'
+            ], 403);
+        }
+        
+        // Obtener algunos clientes asignados al usuario
+        $clientes = Cliente::whereHas('asignacionLlamada', function($q) use ($user, $periodo) {
+            $q->where('user_id', $user->id)
+              ->where('periodo', $periodo)
+              ->whereIn('estado', ['asignado', 'en_progreso']);
+        })->limit($cantidad)->get();
+        
+        if ($clientes->isEmpty()) {
+            return response()->json([
+                'message' => 'No hay clientes asignados para crear llamadas de prueba'
+            ], 404);
+        }
+        
+        // Obtener un estado de llamada por defecto
+        $estadoLlamada = \App\Models\EstadoLlamada::first();
+        
+        if (!$estadoLlamada) {
+            return response()->json([
+                'message' => 'No hay estados de llamada configurados'
+            ], 404);
+        }
+        
+        $llamadasCreadas = [];
+        
+        foreach ($clientes as $cliente) {
+            // Crear una llamada en el período solicitado
+            $fechaLlamada = \Carbon\Carbon::parse($periodo . '-01')->addDays(rand(0, 27));
+            
+            $llamada = \App\Models\Llamada::create([
+                'cliente_id' => $cliente->id,
+                'user_id' => $user->id,
+                'estado_llamada_id' => $estadoLlamada->id,
+                'telefono_utilizado' => $cliente->telefonos ?: '123456789',
+                'observaciones' => 'Llamada de prueba generada automáticamente',
+                'fecha_llamada' => $fechaLlamada
+            ]);
+            
+            $llamadasCreadas[] = [
+                'id' => $llamada->id,
+                'cliente' => $cliente->nombre,
+                'fecha' => $llamada->fecha_llamada->format('Y-m-d H:i:s')
+            ];
+        }
+        
+        return response()->json([
+            'message' => "Se crearon {$cantidad} llamadas de prueba para el período {$periodo}",
+            'llamadas' => $llamadasCreadas
+        ]);
     }
 }

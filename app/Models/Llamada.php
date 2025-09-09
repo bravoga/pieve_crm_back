@@ -37,9 +37,7 @@ class Llamada extends Model
     
     public function scopeByPeriodo($query, $periodo)
     {
-        return $query->whereHas('cliente', function($q) use ($periodo) {
-            $q->where('periodo', $periodo);
-        });
+        return $query->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo]);
     }
     
     public function scopeByUser($query, $userId)
