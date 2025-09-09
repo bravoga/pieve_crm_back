@@ -74,6 +74,13 @@ return new class extends Migration
             // Si no existe el índice, continuar
         }
         
+        // Eliminar el índice de activo antes de eliminar la columna
+        try {
+            DB::statement("DROP INDEX users_activo_index ON users");
+        } catch (\Exception $e) {
+            // Si no existe el índice, continuar
+        }
+        
         Schema::table('users', function (Blueprint $table) {
             // Eliminar campo activo si existe
             if (Schema::hasColumn('users', 'activo')) {
