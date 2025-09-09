@@ -39,11 +39,37 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Eliminar constraint check primero
+        // Eliminar todos los constraints asociados a la columna tipo_contacto
         try {
-            DB::statement("ALTER TABLE clientes DROP CONSTRAINT chk_clientes_tipo_contacto");
+            $constraints = DB::select("
+                SELECT CONSTRAINT_NAME 
+                FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS 
+                WHERE CONSTRAINT_NAME LIKE '%tipo_c%' OR CONSTRAINT_NAME LIKE '%clientes%'
+            ");
+            
+            foreach ($constraints as $constraint) {
+                try {
+                    DB::statement("ALTER TABLE clientes DROP CONSTRAINT [{$constraint->CONSTRAINT_NAME}]");
+                } catch (\Exception $e) {
+                    // Continuar con el siguiente constraint
+                }
+            }
         } catch (\Exception $e) {
-            // Si no existe la constraint, continuar
+            // Si hay error, continuar
+        }
+        
+        // Método alternativo: eliminar constraint por columna
+        try {
+            DB::statement("
+                DECLARE @sql NVARCHAR(MAX) = ''
+                SELECT @sql = @sql + 'ALTER TABLE clientes DROP CONSTRAINT ' + QUOTENAME(name) + ';'
+                FROM sys.check_constraints 
+                WHERE parent_object_id = OBJECT_ID('clientes') 
+                AND definition LIKE '%tipo_contacto%'
+                EXEC sp_executesql @sql
+            ");
+        } catch (\Exception $e) {
+            // Si hay error, continuar
         }
         
         // Eliminar índice antes de eliminar la columna
@@ -53,8 +79,14 @@ return new class extends Migration
             // Si no existe el índice, continuar
         }
         
-        Schema::table('clientes', function (Blueprint $table) {
-            $table->dropColumn('tipo_contacto');
-        });
+        // Finalmente eliminar la columna
+        try {
+            DB::statement("ALTER TABLE clientes DROP COLUMN tipo_contacto");
+        } catch (\Exception $e) {
+            // Si hay error, intentar con Laravel
+            Schema::table('clientes', function (Blueprint $table) {
+                $table->dropColumn('tipo_contacto');
+            });
+        }
     }
 };
