@@ -121,4 +121,48 @@ class User extends Authenticatable implements LdapAuthenticatable
     {
         return $query->where('role', 'cobrador')->where('activo', true);
     }
+
+    /**
+     * Set the user's email attribute.
+     * Prevent setting email to null for existing users with valid emails.
+     */
+    public function setEmailAttribute($value)
+    {
+        // Si el valor es null y el usuario ya existe con un email válido, no actualizar
+        if (is_null($value) && $this->exists && !empty($this->attributes['email'])) {
+            return;
+        }
+        
+        // Si el valor es null y no existe email previo, asignar email genérico
+        if (is_null($value) && (empty($this->attributes['email']) || !$this->exists)) {
+            if (!empty($this->username)) {
+                $value = $this->username . '@grupopieve.com';
+            } else {
+                $value = 'sincorreo@grupopieve.com';
+            }
+        }
+        
+        $this->attributes['email'] = $value;
+    }
+
+    /**
+     * Set the user's domain attribute.
+     * Prevent setting domain to 'default' string literal from LDAP sync.
+     */
+    public function setDomainAttribute($value)
+    {
+        // Si el valor es 'default' (literal), usar el dominio del email
+        if ($value === 'default' && !empty($this->email)) {
+            $emailParts = explode('@', $this->email);
+            if (count($emailParts) === 2) {
+                $value = $emailParts[1];
+            } else {
+                $value = 'grupopieve.com';
+            }
+        } elseif (empty($value) || $value === 'default') {
+            $value = 'grupopieve.com';
+        }
+        
+        $this->attributes['domain'] = $value;
+    }
 }

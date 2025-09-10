@@ -17,6 +17,11 @@ class ClienteController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        \Log::info('ClienteController@index called', [
+            'params' => $request->all(),
+            'geocodificado' => $request->get('geocodificado')
+        ]);
+        
         $query = Cliente::query();
 
         // Filtro por búsqueda
