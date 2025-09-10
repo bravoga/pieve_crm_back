@@ -49,6 +49,10 @@ class ClienteController extends Controller
                 case 'fallidos':
                     $query->where('geocoding_status', 'failed');
                     break;
+                case 'todos_geocodificados':
+                case 'true':
+                    $query->whereIn('geocoding_status', ['validated', 'manual']);
+                    break;
             }
         }
 
@@ -95,6 +99,10 @@ class ClienteController extends Controller
                     break;
                 case 'fallidos':
                     $estadisticasQuery->where('geocoding_status', 'failed');
+                    break;
+                case 'todos_geocodificados':
+                case 'true':
+                    $estadisticasQuery->whereIn('geocoding_status', ['validated', 'manual']);
                     break;
             }
         }
