@@ -48,6 +48,7 @@ class LlamadaController extends Controller
             'telefono_utilizado' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string',
             'fecha_llamada' => 'nullable|date',
+            'fecha_promesa_pago' => 'nullable|date',
         ]);
         
         if ($validator->fails()) {
@@ -63,6 +64,7 @@ class LlamadaController extends Controller
             'telefono_utilizado' => $request->telefono_utilizado,
             'observaciones' => $request->observaciones,
             'fecha_llamada' => $request->fecha_llamada ?? now(),
+            'fecha_promesa_pago' => $request->fecha_promesa_pago,
         ]);
         
         // Si es un llamador, marcar la asignación como completada
@@ -99,6 +101,7 @@ class LlamadaController extends Controller
             'telefono_utilizado' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string',
             'fecha_llamada' => 'sometimes|date',
+            'fecha_promesa_pago' => 'nullable|date',
         ]);
         
         if ($validator->fails()) {
@@ -109,7 +112,8 @@ class LlamadaController extends Controller
             'estado_llamada_id',
             'telefono_utilizado',
             'observaciones',
-            'fecha_llamada'
+            'fecha_llamada',
+            'fecha_promesa_pago'
         ]));
         
         $llamada->load(['cliente', 'user', 'estadoLlamada']);

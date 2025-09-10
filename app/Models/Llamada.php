@@ -13,11 +13,13 @@ class Llamada extends Model
         'estado_llamada_id',
         'telefono_utilizado',
         'observaciones',
-        'fecha_llamada'
+        'fecha_llamada',
+        'fecha_promesa_pago'
     ];
     
     protected $casts = [
-        'fecha_llamada' => 'datetime'
+        'fecha_llamada' => 'datetime',
+        'fecha_promesa_pago' => 'date'
     ];
     
     public function cliente(): BelongsTo
