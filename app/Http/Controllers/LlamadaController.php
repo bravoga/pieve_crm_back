@@ -507,8 +507,8 @@ class LlamadaController extends Controller
         // Calcular porcentaje de progreso
         $porcentajeProgreso = $totalAsignados > 0 ? round(($clientesLlamados / $totalAsignados) * 100, 1) : 0;
         
-        // Estadísticas por llamador
-        $estadisticasPorLlamador = User::where('role', 'llamador')
+        // Estadísticas por llamador - Modificado para SQL Server
+        $llamadoresQuery = User::where('role', 'llamador')
             ->withCount([
                 'asignacionesLlamadas as total_asignados' => function($q) use ($periodo) {
                     $q->where('periodo', $periodo)
@@ -519,9 +519,13 @@ class LlamadaController extends Controller
                         $subQ->where('periodo', $periodo);
                     });
                 }
-            ])
-            ->having('total_asignados', '>', 0)
-            ->get()
+            ]);
+            
+        // Para SQL Server, filtrar después de obtener los resultados
+        $estadisticasPorLlamador = $llamadoresQuery->get()
+            ->filter(function($llamador) {
+                return $llamador->total_asignados > 0;
+            })
             ->map(function($llamador) {
                 $clientesLlamados = Cliente::whereHas('asignacionLlamada', function($q) use ($llamador) {
                         $q->where('user_id', $llamador->id)
