@@ -27,10 +27,6 @@ class LlamadaController extends Controller
             $query->byUser($request->user_id);
         }
         
-        if ($request->has('fecha')) {
-            $query->byFecha($request->fecha);
-        }
-        
         if ($request->has('estado_llamada_id')) {
             $query->where('estado_llamada_id', $request->estado_llamada_id);
         }
@@ -554,6 +550,30 @@ class LlamadaController extends Controller
                 ];
             });
         
+        // Estadísticas de llamadas por estado
+        $estadisticasPorEstado = EstadoLlamada::withCount(['llamadas' => function($query) use ($periodo) {
+                $query->whereHas('cliente', function($q) use ($periodo) {
+                    $q->where('periodo', $periodo);
+                });
+            }])
+            ->get()
+            ->map(function($estado) use ($totalLlamadas) {
+                $porcentaje = $totalLlamadas > 0 ? 
+                    round(($estado->llamadas_count / $totalLlamadas) * 100, 1) : 0;
+                    
+                return [
+                    'id' => $estado->id,
+                    'nombre' => $estado->nombre,
+                    'color' => $estado->color,
+                    'total' => $estado->llamadas_count,
+                    'porcentaje' => $porcentaje
+                ];
+            })
+            ->filter(function($estado) {
+                return $estado['total'] > 0;
+            })
+            ->values();
+        
         return response()->json([
             'periodo' => $periodo,
             'resumen_general' => [
@@ -563,7 +583,8 @@ class LlamadaController extends Controller
                 'total_llamadas' => $totalLlamadas,
                 'porcentaje_progreso' => $porcentajeProgreso
             ],
-            'estadisticas_por_llamador' => $estadisticasPorLlamador
+            'estadisticas_por_llamador' => $estadisticasPorLlamador,
+            'estadisticas_por_estado' => $estadisticasPorEstado
         ]);
     }
     
