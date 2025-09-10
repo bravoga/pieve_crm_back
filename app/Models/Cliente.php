@@ -36,6 +36,15 @@ class Cliente extends Model
         'tipo_contacto',
     ];
 
+    protected $appends = [
+        'telefono',
+        'monto_adeudado',
+        'latitud',
+        'longitud',
+        'geocodificado',
+        'estado'
+    ];
+
     protected function casts(): array
     {
         return [
@@ -139,12 +148,22 @@ class Cliente extends Model
 
     public function getLatitudAttribute()
     {
-        return $this->lat;
+        return $this->attributes['lat'];
     }
 
     public function getLongitudAttribute()
     {
-        return $this->lng;
+        return $this->attributes['lng'];
+    }
+
+    public function getLatAttribute()
+    {
+        return $this->attributes['lat'];
+    }
+
+    public function getLngAttribute()
+    {
+        return $this->attributes['lng'];
     }
 
     public function getGeocodificadoAttribute()
@@ -174,6 +193,16 @@ class Cliente extends Model
     }
 
     public function setLongitudAttribute($value)
+    {
+        $this->attributes['lng'] = $value;
+    }
+
+    public function setLatAttribute($value)
+    {
+        $this->attributes['lat'] = $value;
+    }
+
+    public function setLngAttribute($value)
     {
         $this->attributes['lng'] = $value;
     }
