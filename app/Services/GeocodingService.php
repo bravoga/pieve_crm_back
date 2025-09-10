@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Cliente;
+use App\Models\Configuracion;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -30,14 +31,22 @@ class GeocodingService
             ];
         }
         
+        // Obtener período actual desde configuración
+        $periodoActual = Configuracion::where('clave', 'periodo_actual')->value('valor');
+        if (!$periodoActual) {
+            $periodoActual = now()->format('Y-m');
+        }
+
         $clientesPendientes = Cliente::where('geocoding_status', 'pending')
+            ->where('tipo_contacto', 'visita')
+            ->where('periodo', $periodoActual)
             ->limit(self::BATCH_SIZE)
             ->get();
             
         if ($clientesPendientes->isEmpty()) {
             return [
                 'success' => true,
-                'message' => 'No hay clientes pendientes de geocodificación',
+                'message' => "No hay clientes pendientes de geocodificación (período: {$periodoActual}, tipo: visita)",
                 'procesados' => 0
             ];
         }
@@ -85,7 +94,7 @@ class GeocodingService
         
         return [
             'success' => true,
-            'message' => "Geocodificación completada: {$exitosos} exitosos, {$errores} errores de {$procesados} procesados",
+            'message' => "Geocodificación completada (período: {$periodoActual}, tipo: visita): {$exitosos} exitosos, {$errores} errores de {$procesados} procesados",
             'procesados' => $procesados,
             'exitosos' => $exitosos,
             'errores' => $errores,
@@ -185,12 +194,22 @@ class GeocodingService
      */
     public function obtenerEstadisticas(): array
     {
+        // Obtener período actual desde configuración
+        $periodoActual = Configuracion::where('clave', 'periodo_actual')->value('valor');
+        if (!$periodoActual) {
+            $periodoActual = now()->format('Y-m');
+        }
+
+        // Filtrar solo clientes del período actual con tipo_contacto = 'visita'
+        $queryBase = Cliente::where('periodo', $periodoActual)
+            ->where('tipo_contacto', 'visita');
+
         return [
-            'total' => Cliente::count(),
-            'pendientes' => Cliente::where('geocoding_status', 'pending')->count(),
-            'validados' => Cliente::where('geocoding_status', 'validated')->count(),
-            'manuales' => Cliente::where('geocoding_status', 'manual')->count(),
-            'fallidos' => Cliente::where('geocoding_status', 'failed')->count(),
+            'total' => (clone $queryBase)->count(),
+            'pendientes' => (clone $queryBase)->where('geocoding_status', 'pending')->count(),
+            'validados' => (clone $queryBase)->where('geocoding_status', 'validated')->count(),
+            'manuales' => (clone $queryBase)->where('geocoding_status', 'manual')->count(),
+            'fallidos' => (clone $queryBase)->where('geocoding_status', 'failed')->count(),
         ];
     }
     
