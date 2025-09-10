@@ -595,7 +595,7 @@ class LlamadaController extends Controller
             
         // Contar llamadas del usuario en el período
         $totalLlamadas = \App\Models\Llamada::where('user_id', $user->id)
-            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo])
+            ->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = ?", [$periodo])
             ->count();
             
         // Obtener algunas asignaciones de ejemplo
@@ -607,7 +607,7 @@ class LlamadaController extends Controller
             
         // Obtener algunas llamadas de ejemplo
         $llamadasEjemplo = \App\Models\Llamada::where('user_id', $user->id)
-            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo])
+            ->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = ?", [$periodo])
             ->with('cliente:id,nombre,certi')
             ->limit(5)
             ->get();

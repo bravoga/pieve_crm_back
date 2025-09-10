@@ -54,7 +54,7 @@ class CrearLlamadasPrueba extends Command
             // Verificar si ya tiene llamada
             $existeLlamada = Llamada::where('cliente_id', $cliente->id)
                 ->where('user_id', $user->id)
-                ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = '2025-08'")
+                ->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = '2025-08'")
                 ->exists();
                 
             if ($existeLlamada) {
@@ -82,7 +82,7 @@ class CrearLlamadasPrueba extends Command
         
         // Verificar conteo final
         $totalLlamadas = Llamada::where('user_id', $user->id)
-            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = '2025-08'")
+            ->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = '2025-08'")
             ->count();
             
         $this->info("Total llamadas del usuario en 2025-08: {$totalLlamadas}");

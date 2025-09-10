@@ -39,7 +39,8 @@ class Llamada extends Model
     
     public function scopeByPeriodo($query, $periodo)
     {
-        return $query->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo]);
+        // Compatibilidad con SQL Server
+        return $query->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = ?", [$periodo]);
     }
     
     public function scopeByUser($query, $userId)

@@ -38,7 +38,7 @@ class VerificarLlamadas extends Command
         // Probar query específica para 2025-08
         $periodo = '2025-08';
         $llamadasPeriodo = Llamada::where('user_id', $user->id)
-            ->whereRaw("DATE_FORMAT(fecha_llamada, '%Y-%m') = ?", [$periodo])
+            ->whereRaw("FORMAT(fecha_llamada, 'yyyy-MM') = ?", [$periodo])
             ->count();
             
         $this->info("Llamadas en período {$periodo}: {$llamadasPeriodo}");
