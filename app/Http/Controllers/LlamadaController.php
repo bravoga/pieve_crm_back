@@ -213,37 +213,27 @@ class LlamadaController extends Controller
         $user = Auth::user();
         $cliente = Cliente::with(['llamadas', 'asignacionLlamada'])->findOrFail($request->cliente_id);
         
-        // Si es un llamador, verificar que tiene asignado este cliente
+        // Si es un llamador, verificar que tiene asignado este cliente (incluyendo completados para permitir múltiples llamadas)
         if ($user->isLlamador()) {
             $asignacion = $cliente->asignacionLlamada()
                 ->where('user_id', $user->id)
-                ->whereIn('estado', ['asignado', 'en_progreso'])
+                ->whereIn('estado', ['asignado', 'en_progreso', 'completado'])
                 ->first();
                 
             if (!$asignacion) {
                 return response()->json([
-                    'message' => 'Este cliente no está asignado a ti o ya fue completado'
+                    'message' => 'Este cliente no está asignado a ti'
                 ], 422);
             }
             
-            // Marcar asignación como en progreso
+            // Solo marcar como en progreso si aún está asignado (no si ya está completado)
             if ($asignacion->estado === 'asignado') {
                 $asignacion->marcarComoEnProgreso();
             }
         }
         
-        $ultimaLlamada = $cliente->llamadas()
-            ->where('user_id', $user->id)
-            ->whereDate('fecha_llamada', today())
-            ->first();
-            
-        if ($ultimaLlamada) {
-            return response()->json([
-                'message' => 'Ya realizaste una llamada a este cliente hoy',
-                'cliente' => $cliente,
-                'ultima_llamada' => $ultimaLlamada
-            ], 422);
-        }
+        // Permitir múltiples llamadas por día - la validación anterior se ha removido
+        // para permitir realizar varias llamadas al mismo cliente según requerimientos del negocio
         
         return response()->json(['cliente' => $cliente]);
     }
