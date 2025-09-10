@@ -132,7 +132,8 @@ class LlamadaController extends Controller
         $periodo = $request->has('periodo') ? $request->periodo : $periodoDefecto;
         
         $query = Cliente::with(['llamadas' => function($q) {
-            $q->latest('fecha_llamada')->limit(1);
+            $q->with(['estadoLlamada:id,nombre,color', 'user:id,name'])
+              ->latest('fecha_llamada');
         }]);
         
         // Si es un llamador, solo mostrar sus clientes asignados
@@ -211,7 +212,13 @@ class LlamadaController extends Controller
         }
         
         $user = Auth::user();
-        $cliente = Cliente::with(['llamadas', 'asignacionLlamada'])->findOrFail($request->cliente_id);
+        $cliente = Cliente::with([
+            'llamadas' => function($q) {
+                $q->with(['estadoLlamada:id,nombre,color', 'user:id,name'])
+                  ->latest('fecha_llamada');
+            }, 
+            'asignacionLlamada'
+        ])->findOrFail($request->cliente_id);
         
         // Si es un llamador, verificar que tiene asignado este cliente (incluyendo completados para permitir múltiples llamadas)
         if ($user->isLlamador()) {
@@ -285,7 +292,8 @@ class LlamadaController extends Controller
         \Log::info('Llamadas del usuario para clientes del período', ['periodo' => $periodo, 'count' => $llamadasClientesPeriodo]);
         
         $query = Cliente::with(['llamadas' => function($q) {
-            $q->latest('fecha_llamada')->limit(1);
+            $q->with(['estadoLlamada:id,nombre,color', 'user:id,name'])
+              ->latest('fecha_llamada');
         }]);
         
         // Filtrar SIEMPRE por los clientes asignados al usuario logueado
