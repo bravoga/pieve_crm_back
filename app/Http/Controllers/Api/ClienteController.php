@@ -660,7 +660,8 @@ class ClienteController extends Controller
             ]);
 
             foreach ($chunks as $chunkIndex => $chunk) {
-                \Log::info("Procesando lote {$chunkIndex}/{count($chunks)}", [
+                $totalChunks = count($chunks);
+                \Log::info("Procesando lote {$chunkIndex}/{$totalChunks}", [
                     'registros_en_lote' => count($chunk)
                 ]);
 
