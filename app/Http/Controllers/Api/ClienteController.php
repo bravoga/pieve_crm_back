@@ -571,19 +571,34 @@ class ClienteController extends Controller
             'anio' => 'required|integer|between:2020,2030',
             'sucursal' => 'required|integer|min:1',
             'cartilla' => 'required|integer|min:1',
+            'periodo' => 'nullable|string', // Período opcional del frontend
         ]);
 
         try {
+            \Log::info('=== INICIO sincronizarIndividuales ===', [
+                'mes' => $request->mes,
+                'anio' => $request->anio,
+                'sucursal' => $request->sucursal,
+                'cartilla' => $request->cartilla,
+                'usuario' => $request->user()->id
+            ]);
+
             // Aumentar el tiempo límite de ejecución para manejar grandes volúmenes
             set_time_limit(600); // 10 minutos
+            \Log::info('Tiempo límite establecido a 600 segundos');
 
             $mes = str_pad($request->mes, 2, '0', STR_PAD_LEFT);
             $anio = $request->anio;
             $sucursal = $request->sucursal;
             $cartilla = $request->cartilla;
 
-            // Crear el período en formato YYYY-MM
-            $periodo = "{$anio}-{$mes}";
+            // Usar el período del frontend si está disponible, sino crear uno con mes/año
+            $periodo = $request->periodo ?? "{$anio}-{$mes}";
+            \Log::info('Período a usar:', [
+                'periodo_frontend' => $request->periodo,
+                'periodo_calculado' => "{$anio}-{$mes}",
+                'periodo_final' => $periodo
+            ]);
 
             // Crear registro de sincronización
             $carga = CargaExcel::create([
@@ -596,8 +611,10 @@ class ClienteController extends Controller
                 'estado' => 'procesando',
                 'errores_detalle' => [],
             ]);
+            \Log::info('Registro de carga creado:', ['carga_id' => $carga->id]);
 
             // Ejecutar consulta SQL personalizada
+            \Log::info('Ejecutando consulta SQL en base de datos sqlGPIEVE...');
             $results = \DB::connection('sqlGPIEVE')
                 ->select("SELECT
                     f.IdTitularCp AS Certificado,
@@ -625,6 +642,10 @@ class ClienteController extends Controller
                     ON epp.IdTitularCp = f.IdTitularCp
                 WHERE f.IdTitularCp > 0");
 
+            \Log::info('Consulta SQL ejecutada exitosamente', [
+                'total_resultados' => count($results)
+            ]);
+
             $procesados = 0;
             $exitosos = 0;
             $actualizados = 0;
@@ -633,10 +654,23 @@ class ClienteController extends Controller
 
             // Procesar en lotes para evitar problemas de memoria
             $chunks = array_chunk($results, 500);
+            \Log::info('Procesando en lotes', [
+                'total_lotes' => count($chunks),
+                'registros_por_lote' => 500
+            ]);
 
-            foreach ($chunks as $chunk) {
+            foreach ($chunks as $chunkIndex => $chunk) {
+                \Log::info("Procesando lote {$chunkIndex}/{count($chunks)}", [
+                    'registros_en_lote' => count($chunk)
+                ]);
+
                 foreach ($chunk as $record) {
                     $procesados++;
+
+                    // Log cada 100 registros procesados
+                    if ($procesados % 100 === 0) {
+                        \Log::info("Progreso: {$procesados} registros procesados");
+                    }
 
                     try {
                     // Analizar el campo telefonos para determinar tipo_contacto
@@ -720,10 +754,22 @@ class ClienteController extends Controller
                 'estado' => 'completado',
             ]);
 
+            \Log::info('Procesamiento completado', [
+                'total_procesados' => $procesados,
+                'nuevos' => $exitosos,
+                'actualizados' => $actualizados,
+                'errores' => $errores
+            ]);
+
             $totalProcesados = $exitosos + $actualizados;
             $message = $errores > 0
                 ? "Sincronización Individual completada para período {$periodo}: {$exitosos} nuevos, {$actualizados} actualizados, {$errores} errores."
                 : "Sincronización Individual exitosa para período {$periodo}: {$exitosos} nuevos, {$actualizados} actualizados.";
+
+            \Log::info('=== FIN sincronizarIndividuales EXITOSO ===', [
+                'mensaje' => $message,
+                'carga_id' => $carga->id
+            ]);
 
             return response()->json([
                 'message' => $message,
@@ -753,9 +799,20 @@ class ClienteController extends Controller
                 ]);
             }
 
+            \Log::error('=== ERROR EN sincronizarIndividuales ===', [
+                'error' => $e->getMessage(),
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'message' => 'Error en la sincronización: ' . $e->getMessage(),
                 'carga_id' => $carga->id ?? null,
+                'error_details' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
             ], 500);
         }
     }
