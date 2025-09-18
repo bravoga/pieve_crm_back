@@ -574,6 +574,9 @@ class ClienteController extends Controller
         ]);
 
         try {
+            // Aumentar el tiempo límite de ejecución para manejar grandes volúmenes
+            set_time_limit(600); // 10 minutos
+
             $mes = str_pad($request->mes, 2, '0', STR_PAD_LEFT);
             $anio = $request->anio;
             $sucursal = $request->sucursal;
@@ -624,13 +627,18 @@ class ClienteController extends Controller
 
             $procesados = 0;
             $exitosos = 0;
+            $actualizados = 0;
             $errores = 0;
             $errores_detalle = [];
 
-            foreach ($results as $record) {
-                $procesados++;
+            // Procesar en lotes para evitar problemas de memoria
+            $chunks = array_chunk($results, 500);
 
-                try {
+            foreach ($chunks as $chunk) {
+                foreach ($chunk as $record) {
+                    $procesados++;
+
+                    try {
                     // Analizar el campo telefonos para determinar tipo_contacto
                     $telefonos = $record->telefonos ?? null;
                     $tipoContacto = 'visita'; // Por defecto
@@ -646,16 +654,11 @@ class ClienteController extends Controller
                         $direccion .= ', ' . $record->BarrioCobro;
                     }
 
-                    // Determinar el convenio basado en el campo Oficina y Planes
-                    $nbreConvenio = null;
-                    if ($record->Oficina === 'Pagado en Oficina') {
-                        $nbreConvenio = 'OFICINA';
-                    } elseif (!empty($record->Planes)) {
-                        // Usar los primeros caracteres del plan como convenio
-                        $nbreConvenio = substr($record->Planes, 0, 50);
-                    }
+                    // Establecer convenio como OFICINA por defecto para todos
+                    $nbreConvenio = 'OFICINA';
 
-                    // Verificar si el cliente ya existe en el mismo período
+                    // Verificar si el cliente ya existe (sin importar el período)
+                    // para evitar duplicados en sincronizaciones múltiples
                     $clienteExistente = Cliente::where('certi', $record->Certificado)
                         ->where('periodo', $periodo)
                         ->first();
@@ -667,14 +670,14 @@ class ClienteController extends Controller
                             'telefonos' => $telefonos ?? $clienteExistente->telefonos,
                             'direccion' => $direccion ?? $clienteExistente->direccion,
                             'importe' => (float) ($record->importe ?? 0),
-                            'nbre_convenio' => $nbreConvenio ?? $clienteExistente->nbre_convenio,
+                            'nbre_convenio' => $nbreConvenio,
                             'localidad' => $record->localidad ?? $clienteExistente->localidad,
                             'periodo' => $periodo,
                             'tipo_contacto' => $tipoContacto,
                             'ultimo_pago' => $record->UltimoPago ?? null,
                             'nro_cobrador' => $record->NroCobrador ?? null,
                         ]);
-                        $exitosos++;
+                        $actualizados++;
                     } else {
                         // Crear nuevo cliente
                         Cliente::create([
@@ -703,6 +706,7 @@ class ClienteController extends Controller
                         'nombre' => $record->ApellidoNombre ?? 'N/A',
                         'error' => $e->getMessage(),
                     ];
+                    }
                 }
             }
 
@@ -716,16 +720,18 @@ class ClienteController extends Controller
                 'estado' => 'completado',
             ]);
 
+            $totalProcesados = $exitosos + $actualizados;
             $message = $errores > 0
-                ? "Sincronización Individual completada para período {$periodo}: {$exitosos} registros exitosos, {$errores} errores."
-                : "Sincronización Individual exitosa para período {$periodo}: {$exitosos} registros procesados.";
+                ? "Sincronización Individual completada para período {$periodo}: {$exitosos} nuevos, {$actualizados} actualizados, {$errores} errores."
+                : "Sincronización Individual exitosa para período {$periodo}: {$exitosos} nuevos, {$actualizados} actualizados.";
 
             return response()->json([
                 'message' => $message,
                 'sincronizacion' => [
                     'id' => $carga->id,
                     'total_registros' => $procesados,
-                    'exitosos' => $exitosos,
+                    'nuevos' => $exitosos,
+                    'actualizados' => $actualizados,
                     'errores' => $errores,
                     'parametros' => [
                         'mes' => $mes,
