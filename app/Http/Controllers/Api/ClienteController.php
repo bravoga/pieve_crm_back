@@ -654,13 +654,13 @@ class ClienteController extends Controller
 
             // Procesar en lotes para evitar problemas de memoria
             $chunks = array_chunk($results, 500);
+            $totalChunks = count($chunks);
             \Log::info('Procesando en lotes', [
-                'total_lotes' => count($chunks),
+                'total_lotes' => $totalChunks,
                 'registros_por_lote' => 500
             ]);
 
             foreach ($chunks as $chunkIndex => $chunk) {
-                $totalChunks = count($chunks);
                 \Log::info("Procesando lote {$chunkIndex}/{$totalChunks}", [
                     'registros_en_lote' => count($chunk)
                 ]);
