@@ -51,7 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('carga-excel/{carga}', [ClienteController::class, 'estadoCarga']);
         Route::get('ultima-carga', [ClienteController::class, 'ultimaCarga']);
         Route::post('sincronizar-tarjetas', [ClienteController::class, 'sincronizarTarjetas']);
-        
+        Route::post('sincronizar-individuales', [ClienteController::class, 'sincronizarIndividuales']);
+
         // Rutas con parámetros dinámicos (deben ir al final)
         Route::get('{cliente}', [ClienteController::class, 'show']);
         Route::put('{cliente}', [ClienteController::class, 'update']);

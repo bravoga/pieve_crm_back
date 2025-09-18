@@ -562,6 +562,199 @@ class ClienteController extends Controller
     }
 
     /**
+     * Sincronizar clientes individuales desde el procedimiento almacenado
+     */
+    public function sincronizarIndividuales(Request $request): JsonResponse
+    {
+        $request->validate([
+            'mes' => 'required|integer|between:1,12',
+            'anio' => 'required|integer|between:2020,2030',
+            'sucursal' => 'required|integer|min:1',
+            'cartilla' => 'required|integer|min:1',
+        ]);
+
+        try {
+            $mes = str_pad($request->mes, 2, '0', STR_PAD_LEFT);
+            $anio = $request->anio;
+            $sucursal = $request->sucursal;
+            $cartilla = $request->cartilla;
+
+            // Crear el período en formato YYYY-MM
+            $periodo = "{$anio}-{$mes}";
+
+            // Crear registro de sincronización
+            $carga = CargaExcel::create([
+                'user_id' => $request->user()->id,
+                'archivo_nombre' => "Sincronización Individuales - {$mes}/{$anio} - S:{$sucursal} - C:{$cartilla}",
+                'total_registros' => 0,
+                'registros_procesados' => 0,
+                'exitosos' => 0,
+                'errores' => 0,
+                'estado' => 'procesando',
+                'errores_detalle' => [],
+            ]);
+
+            // Ejecutar consulta SQL personalizada
+            $results = \DB::connection('sqlGPIEVE')
+                ->select("SELECT
+                    f.IdTitularCp AS Certificado,
+                    CASE WHEN f.RAplicar = 0
+                         THEN b.Apellido + ', ' + b.Nombre
+                         ELSE f.RApellidoNombre + '- Resp'
+                    END AS ApellidoNombre,
+                    DireccionCob AS DomicilioCobro,
+                    BarrioCobro,
+                    ISNULL(l.NomLocalidad, '-') AS localidad,
+                    f.telefonos,
+                    CAST(ROUND(epp.TotalPre, 0) AS INT) AS importe,
+                    dbo.fn_SRL_DevolverPLanesCertificado(f.IdTitularCp) AS Planes,
+                    RIGHT('0' + CAST(vupfa.Mes AS VARCHAR(2)), 2) + '/' + CAST(vupfa.Anio AS VARCHAR(5)) AS UltimoPago,
+                    f.IdCobradorCf AS NroCobrador,
+                    CASE WHEN f.CobOficina = 1 THEN 'Pagado en Oficina' ELSE '-' END AS Oficina
+                FROM fichas f
+                INNER JOIN dbo.Beneficiarios AS b
+                    ON f.IdBenCF = b.idbencp
+                INNER JOIN dbo.v_UltimoPagoFichasActivas2 AS vupfa
+                    ON f.IdTitularCp = vupfa.IdTitularCp
+                LEFT JOIN dbo.Localidades AS l
+                    ON l.IdLocalidadCp = f.IdlocalidadCf
+                INNER JOIN dbo.Estadisticas_paraProyeccion AS epp
+                    ON epp.IdTitularCp = f.IdTitularCp
+                WHERE f.IdTitularCp > 0");
+
+            $procesados = 0;
+            $exitosos = 0;
+            $errores = 0;
+            $errores_detalle = [];
+
+            foreach ($results as $record) {
+                $procesados++;
+
+                try {
+                    // Analizar el campo telefonos para determinar tipo_contacto
+                    $telefonos = $record->telefonos ?? null;
+                    $tipoContacto = 'visita'; // Por defecto
+
+                    // Si hay teléfonos y contiene al menos un dígito, asignar 'llamada'
+                    if (!empty($telefonos) && $telefonos != '0' && preg_match('/\d/', $telefonos)) {
+                        $tipoContacto = 'llamada';
+                    }
+
+                    // Procesar el campo de dirección y barrio
+                    $direccion = trim($record->DomicilioCobro ?? '');
+                    if (!empty($record->BarrioCobro) && $record->BarrioCobro != '-') {
+                        $direccion .= ', ' . $record->BarrioCobro;
+                    }
+
+                    // Determinar el convenio basado en el campo Oficina y Planes
+                    $nbreConvenio = null;
+                    if ($record->Oficina === 'Pagado en Oficina') {
+                        $nbreConvenio = 'OFICINA';
+                    } elseif (!empty($record->Planes)) {
+                        // Usar los primeros caracteres del plan como convenio
+                        $nbreConvenio = substr($record->Planes, 0, 50);
+                    }
+
+                    // Verificar si el cliente ya existe en el mismo período
+                    $clienteExistente = Cliente::where('certi', $record->Certificado)
+                        ->where('periodo', $periodo)
+                        ->first();
+
+                    if ($clienteExistente) {
+                        // Actualizar cliente existente en el mismo período
+                        $clienteExistente->update([
+                            'nombre' => $record->ApellidoNombre ?? $clienteExistente->nombre,
+                            'telefonos' => $telefonos ?? $clienteExistente->telefonos,
+                            'direccion' => $direccion ?? $clienteExistente->direccion,
+                            'importe' => (float) ($record->importe ?? 0),
+                            'nbre_convenio' => $nbreConvenio ?? $clienteExistente->nbre_convenio,
+                            'localidad' => $record->localidad ?? $clienteExistente->localidad,
+                            'periodo' => $periodo,
+                            'tipo_contacto' => $tipoContacto,
+                            'ultimo_pago' => $record->UltimoPago ?? null,
+                            'nro_cobrador' => $record->NroCobrador ?? null,
+                        ]);
+                        $exitosos++;
+                    } else {
+                        // Crear nuevo cliente
+                        Cliente::create([
+                            'certi' => $record->Certificado,
+                            'nombre' => $record->ApellidoNombre,
+                            'telefonos' => $telefonos,
+                            'direccion' => $direccion,
+                            'importe' => (float) ($record->importe ?? 0),
+                            'nbre_convenio' => $nbreConvenio,
+                            'localidad' => $record->localidad ?? '-',
+                            'provincia' => 'Salta',
+                            'pais' => 'Argentina',
+                            'periodo' => $periodo,
+                            'tipo_contacto' => $tipoContacto,
+                            'ultimo_pago' => $record->UltimoPago ?? null,
+                            'nro_cobrador' => $record->NroCobrador ?? null,
+                            'geocoding_status' => 'pending',
+                        ]);
+                        $exitosos++;
+                    }
+                } catch (\Exception $e) {
+                    $errores++;
+                    $errores_detalle[] = [
+                        'registro' => $procesados,
+                        'certificado' => $record->Certificado ?? 'N/A',
+                        'nombre' => $record->ApellidoNombre ?? 'N/A',
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            // Actualizar registro de sincronización
+            $carga->update([
+                'total_registros' => $procesados,
+                'registros_procesados' => $procesados,
+                'exitosos' => $exitosos,
+                'errores' => $errores,
+                'errores_detalle' => $errores_detalle,
+                'estado' => 'completado',
+            ]);
+
+            $message = $errores > 0
+                ? "Sincronización Individual completada para período {$periodo}: {$exitosos} registros exitosos, {$errores} errores."
+                : "Sincronización Individual exitosa para período {$periodo}: {$exitosos} registros procesados.";
+
+            return response()->json([
+                'message' => $message,
+                'sincronizacion' => [
+                    'id' => $carga->id,
+                    'total_registros' => $procesados,
+                    'exitosos' => $exitosos,
+                    'errores' => $errores,
+                    'parametros' => [
+                        'mes' => $mes,
+                        'anio' => $anio,
+                        'periodo' => $periodo,
+                        'sucursal' => $sucursal,
+                        'cartilla' => $cartilla,
+                    ],
+                    'errores_detalle' => array_slice($errores_detalle, 0, 10),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            // Error en la sincronización
+            if (isset($carga)) {
+                $carga->update([
+                    'estado' => 'error',
+                    'errores_detalle' => [['error' => $e->getMessage()]],
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Error en la sincronización: ' . $e->getMessage(),
+                'carga_id' => $carga->id ?? null,
+            ], 500);
+        }
+    }
+
+    /**
      * Obtener configuración para el frontend
      */
     public function config(): JsonResponse
