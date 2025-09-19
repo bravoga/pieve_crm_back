@@ -21,7 +21,7 @@ class ClienteController extends Controller
             'params' => $request->all(),
             'geocodificado' => $request->get('geocodificado')
         ]);
-        
+
         $query = Cliente::query();
 
         // Filtro por búsqueda
@@ -77,20 +77,20 @@ class ClienteController extends Controller
 
         // Calcular estadísticas aplicando los mismos filtros que la consulta principal
         $estadisticasQuery = Cliente::query();
-        
+
         // Aplicar los mismos filtros que para la consulta principal
         if ($request->has('search') && $request->search) {
             $estadisticasQuery->buscar($request->search);
         }
-        
+
         if ($request->has('convenio') && $request->convenio) {
             $estadisticasQuery->where('nbre_convenio', $request->convenio);
         }
-        
+
         if ($request->has('tipo_contacto') && $request->tipo_contacto) {
             $estadisticasQuery->where('tipo_contacto', $request->tipo_contacto);
         }
-        
+
         if ($request->has('geocodificado') && $request->geocodificado) {
             switch ($request->geocodificado) {
                 case 'validados':
@@ -111,7 +111,7 @@ class ClienteController extends Controller
                     break;
             }
         }
-        
+
         $estadisticas = [
             'total_clientes' => $estadisticasQuery->count(),
             'clientes_activos' => $estadisticasQuery->count(), // Todos los clientes son considerados activos
@@ -293,7 +293,7 @@ class ClienteController extends Controller
         ]);
 
         $file = $request->file('excel_file');
-        
+
         // Crear registro de carga
         $carga = CargaExcel::create([
             'user_id' => $request->user()->id,
@@ -321,7 +321,7 @@ class ClienteController extends Controller
                 'estado' => $import->errores > 0 ? 'completado' : 'completado',
             ]);
 
-            $message = $import->errores > 0 
+            $message = $import->errores > 0
                 ? "Archivo procesado con {$import->exitosos} registros exitosos y {$import->errores} errores."
                 : "Archivo procesado exitosamente. {$import->exitosos} registros importados.";
 
@@ -372,7 +372,7 @@ class ClienteController extends Controller
     public function ultimaCarga(): JsonResponse
     {
         $carga = CargaExcel::latest()->first();
-        
+
         if (!$carga) {
             return response()->json(['message' => 'No hay cargas registradas'], 404);
         }
@@ -409,7 +409,7 @@ class ClienteController extends Controller
             $anio = $request->anio;
             $sucursal = $request->sucursal;
             $cartilla = $request->cartilla;
-            
+
             // Crear el período en formato YYYY-MM
             $periodo = "{$anio}-{$mes}";
 
@@ -438,22 +438,22 @@ class ClienteController extends Controller
 
             foreach ($results as $record) {
                 $procesados++;
-                
+
                 try {
                     // Analizar el campo telefonos para determinar tipo_contacto
                     $telefonos = $record->Telefonos ?? null;
                     $tipoContacto = 'visita'; // Por defecto
-                    
+
                     // Si hay teléfonos y contiene al menos un dígito, asignar 'llamada'
                     if (!empty($telefonos) && preg_match('/\d/', $telefonos)) {
                         $tipoContacto = 'llamada';
                     }
-                    
+
                     // Verificar si el cliente ya existe en el mismo período
                     $clienteExistente = Cliente::where('certi', $record->certi)
                         ->where('periodo', $periodo)
                         ->first();
-                    
+
                     if ($clienteExistente) {
                         // Actualizar cliente existente en el mismo período
                         $clienteExistente->update([
@@ -507,7 +507,7 @@ class ClienteController extends Controller
                 'estado' => $errores > 0 ? 'completado' : 'completado',
             ]);
 
-            $message = $errores > 0 
+            $message = $errores > 0
                 ? "Sincronización completada para período {$periodo}: {$exitosos} registros exitosos, {$errores} errores."
                 : "Sincronización exitosa para período {$periodo}: {$exitosos} registros procesados.";
 
@@ -617,30 +617,35 @@ class ClienteController extends Controller
             \Log::info('Ejecutando consulta SQL en base de datos sqlGPIEVE...');
             $results = \DB::connection('sqlGPIEVE')
                 ->select("SELECT
-                    f.IdTitularCp AS Certificado,
-                    CASE WHEN f.RAplicar = 0
-                         THEN b.Apellido + ', ' + b.Nombre
-                         ELSE f.RApellidoNombre + '- Resp'
-                    END AS ApellidoNombre,
-                    DireccionCob AS DomicilioCobro,
-                    BarrioCobro,
-                    ISNULL(l.NomLocalidad, '-') AS localidad,
-                    f.telefonos,
-                    CAST(ROUND(epp.TotalPre, 0) AS INT) AS importe,
-                    dbo.fn_SRL_DevolverPLanesCertificado(f.IdTitularCp) AS Planes,
-                    RIGHT('0' + CAST(vupfa.Mes AS VARCHAR(2)), 2) + '/' + CAST(vupfa.Anio AS VARCHAR(5)) AS UltimoPago,
-                    f.IdCobradorCf AS NroCobrador,
-                    CASE WHEN f.CobOficina = 1 THEN 'Pagado en Oficina' ELSE '-' END AS Oficina
-                FROM fichas f
-                INNER JOIN dbo.Beneficiarios AS b
-                    ON f.IdBenCF = b.idbencp
-                INNER JOIN dbo.v_UltimoPagoFichasActivas2 AS vupfa
-                    ON f.IdTitularCp = vupfa.IdTitularCp
-                LEFT JOIN dbo.Localidades AS l
-                    ON l.IdLocalidadCp = f.IdlocalidadCf
-                INNER JOIN dbo.Estadisticas_paraProyeccion AS epp
-                    ON epp.IdTitularCp = f.IdTitularCp
-                WHERE f.IdTitularCp > 0");
+    f.IdTitularCp AS Certificado,
+    CASE WHEN f.RAplicar = 0
+         THEN b.Apellido + ', ' + b.Nombre
+         ELSE f.RApellidoNombre + '- Resp'
+    END AS ApellidoNombre,
+    DireccionCob AS DomicilioCobro,
+    BarrioCobro,
+    ISNULL(l.NomLocalidad, '-') AS localidad,
+    f.telefonos,
+    CAST(ROUND(epp.TotalPre, 0) AS INT) AS importe,  -- <- sin decimales
+    dbo.fn_SRL_DevolverPLanesCertificado(f.IdTitularCp) AS Planes,
+    RIGHT('0' + CAST(vupfa.Mes AS VARCHAR(2)), 2) + '/' + CAST(vupfa.Anio AS VARCHAR(5)) AS UltimoPago,
+    f.IdCobradorCf AS NroCobrador,
+    CASE WHEN f.CobOficina = 1 THEN 'Pagado en Oficina' ELSE '-' END AS Oficina
+FROM fichas f
+INNER JOIN dbo.Beneficiarios AS b
+    ON f.IdBenCF = b.idbencp
+INNER JOIN dbo.v_UltimoPagoFichasActivas2 AS vupfa
+    ON f.IdTitularCp = vupfa.IdTitularCp
+LEFT JOIN dbo.Localidades AS l
+    ON l.IdLocalidadCp = f.IdlocalidadCf
+INNER JOIN dbo.Estadisticas_paraProyeccion AS epp
+    ON epp.IdTitularCp = f.IdTitularCp
+WHERE f.IdTitularCp > 0
+  AND f.IdContratanteCf = 0
+  AND f.Existe = 1
+  AND vupfa.Vupago BETWEEN (MONTH(GETDATE()) + YEAR(GETDATE()) * 12 - 3)
+                       AND (MONTH(GETDATE()) + YEAR(GETDATE()) * 12 - 2);");
+
 
             \Log::info('Consulta SQL ejecutada exitosamente', [
                 'total_resultados' => count($results)
