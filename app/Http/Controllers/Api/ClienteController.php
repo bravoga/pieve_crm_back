@@ -705,6 +705,8 @@ WHERE f.IdTitularCp > 0
 
                     if ($clienteExistente) {
                         // Actualizar cliente existente en el mismo período
+                        /*
+                         NO ACTUALIZA CLIENTES EXISTENTES PARA MANTENER HISTORIAL
                         $clienteExistente->update([
                             'nombre' => $record->ApellidoNombre ?? $clienteExistente->nombre,
                             'telefonos' => $telefonos ?? $clienteExistente->telefonos,
@@ -717,6 +719,7 @@ WHERE f.IdTitularCp > 0
                             'ultimo_pago' => $record->UltimoPago ?? null,
                             'nro_cobrador' => $record->NroCobrador ?? null,
                         ]);
+                        */
                         $actualizados++;
                     } else {
                         // Crear nuevo cliente
