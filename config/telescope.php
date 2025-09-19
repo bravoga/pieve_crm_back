@@ -116,6 +116,8 @@ return [
         'livewire*',
         'nova-api*',
         'pulse*',
+        'api/clientes/sincronizar-individuales',
+        'api/clientes/sincronizar-tarjetas',
     ],
 
     'ignore_commands' => [
