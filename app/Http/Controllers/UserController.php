@@ -34,7 +34,8 @@ class UserController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('username', 'like', "%{$search}%")
-                  ->orWhere('pin', 'like', "%{$search}%");
+                  ->orWhere('pin', 'like', "%{$search}%")
+                  ->orWhere('legajo', 'like', "%{$search}%");
             });
         }
         
@@ -136,6 +137,7 @@ class UserController extends Controller
             'is_active' => 'sometimes|boolean',
             'is_blocked' => 'sometimes|boolean',
             'pin' => ['sometimes', 'string', 'size:6', Rule::unique('users')->ignore($id)],
+            'legajo' => 'sometimes|nullable|integer',
         ]);
         
         if ($request->has('password')) {
