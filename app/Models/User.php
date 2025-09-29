@@ -26,6 +26,7 @@ class User extends Authenticatable implements LdapAuthenticatable
         'email',
         'password',
         'pin',
+        'legajo',
         'role',
         'activo',
         'username',
