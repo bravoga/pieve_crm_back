@@ -196,9 +196,15 @@ class LlamadaController extends Controller
     
     public function periodoActual(): JsonResponse
     {
-        $periodo = Configuracion::obtenerValor('periodo_actual', now()->format('Y-m'));
-        
-        return response()->json(['periodo' => $periodo]);
+        $config = Configuracion::where('clave', 'periodo_actual')->first();
+
+        $periodo = $config ? $config->valor : now()->format('Y-m');
+        $estado = $config ? $config->estado : true;
+
+        return response()->json([
+            'periodo' => $periodo,
+            'estado' => $estado
+        ]);
     }
     
     public function tomarCliente(Request $request): JsonResponse

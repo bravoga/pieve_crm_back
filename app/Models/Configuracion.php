@@ -11,7 +11,12 @@ class Configuracion extends Model
     protected $fillable = [
         'clave',
         'valor',
-        'descripcion'
+        'descripcion',
+        'estado'
+    ];
+
+    protected $casts = [
+        'estado' => 'boolean'
     ];
     
     public static function obtenerValor($clave, $valorPorDefecto = null)
