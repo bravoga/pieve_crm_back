@@ -456,6 +456,7 @@ class ClienteController extends Controller
 
                     if ($clienteExistente) {
                         // Actualizar cliente existente en el mismo período
+                        /*
                         $clienteExistente->update([
                             'nombre' => $record->nombre ?? $clienteExistente->nombre,
                             'telefonos' => $telefonos ?? $clienteExistente->telefonos,
@@ -467,7 +468,9 @@ class ClienteController extends Controller
                             'periodo' => $periodo, // Asignar el período actual
                             'tipo_contacto' => $tipoContacto, // Asignar tipo de contacto basado en teléfonos
                         ]);
+                        */
                         $exitosos++;
+
                     } else {
                         // Crear nuevo cliente (puede existir en otro período, pero es válido tener múltiples registros)
                         Cliente::create([
