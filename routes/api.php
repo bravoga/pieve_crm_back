@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\GeocodingController;
+use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\LlamadaController;
 use App\Http\Controllers\AsignacionLlamadaController;
 use App\Http\Controllers\UserController;
@@ -153,6 +154,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('estadisticas-llamador', [AsignacionLlamadaController::class, 'estadisticasLlamador']);
         Route::put('{asignacion}/reasignar', [AsignacionLlamadaController::class, 'reasignar']);
         Route::put('{asignacion}/cancelar', [AsignacionLlamadaController::class, 'cancelar']);
+    });
+
+    // Gestión de configuración (solo admin)
+    Route::prefix('configuracion')->group(function () {
+        Route::get('/', [ConfiguracionController::class, 'index']);
+        Route::put('{id}', [ConfiguracionController::class, 'update']);
     });
 });
 
