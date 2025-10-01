@@ -426,6 +426,17 @@ class ClienteController extends Controller
             ]);
 
             // Ejecutar procedimiento almacenado
+            \Log::info('Ejecutando usp_tarjetas', [
+                'query' => 'EXEC usp_tarjetas ?, ?, ?, ?',
+                'parametros' => [
+                    'mes' => $mes,
+                    'anio' => $anio,
+                    'sucursal' => $sucursal,
+                    'cartilla' => $cartilla
+                ],
+                'query_completa' => "EXEC usp_tarjetas {$mes}, {$anio}, '{$sucursal}', '{$cartilla}'"
+            ]);
+
             $results = \DB::connection('sqlGPIEVE')
                 ->select("EXEC usp_tarjetas ?, ?, ?, ?", [
                     $mes, $anio, $sucursal, $cartilla
