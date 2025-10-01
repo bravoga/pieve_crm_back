@@ -12,11 +12,13 @@ class Configuracion extends Model
         'clave',
         'valor',
         'descripcion',
-        'estado'
+        'estado',
+        'fecha_limite_llamada'
     ];
 
     protected $casts = [
-        'estado' => 'boolean'
+        'estado' => 'boolean',
+        'fecha_limite_llamada' => 'date'
     ];
     
     public static function obtenerValor($clave, $valorPorDefecto = null)

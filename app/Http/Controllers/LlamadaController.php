@@ -200,10 +200,12 @@ class LlamadaController extends Controller
 
         $periodo = $config ? $config->valor : now()->format('Y-m');
         $estado = $config ? $config->estado : true;
+        $fechaLimite = $config ? $config->fecha_limite_llamada : null;
 
         return response()->json([
             'periodo' => $periodo,
-            'estado' => $estado
+            'estado' => $estado,
+            'fecha_limite_llamada' => $fechaLimite
         ]);
     }
     

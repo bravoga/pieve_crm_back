@@ -46,6 +46,7 @@ class ConfiguracionController extends Controller
         $validated = $request->validate([
             'valor' => 'required|string',
             'estado' => 'required|boolean',
+            'fecha_limite_llamada' => 'nullable|date',
         ]);
 
         $configuracion->update($validated);
