@@ -541,10 +541,10 @@ class LlamadaController extends Controller
                     ->whereHas('llamadas', function($q) use ($llamador) {
                         $q->where('user_id', $llamador->id);
                     })->count();
-                    
-                $porcentaje = $llamador->total_asignados > 0 ? 
+
+                $porcentaje = $llamador->total_asignados > 0 ?
                     round(($clientesLlamados / $llamador->total_asignados) * 100, 1) : 0;
-                    
+
                 return [
                     'id' => $llamador->id,
                     'nombre' => $llamador->name,
@@ -554,7 +554,8 @@ class LlamadaController extends Controller
                     'total_llamadas' => $llamador->total_llamadas,
                     'porcentaje_progreso' => $porcentaje
                 ];
-            });
+            })
+            ->values();
         
         // Estadísticas de llamadas por estado
         $estadisticasPorEstado = EstadoLlamada::withCount(['llamadas' => function($query) use ($periodo) {
