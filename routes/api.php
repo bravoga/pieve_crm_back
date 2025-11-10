@@ -3,15 +3,20 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ClienteController;
-use App\Http\Controllers\Api\GeocodingController;
-use App\Http\Controllers\Api\ConfiguracionController;
-use App\Http\Controllers\LlamadaController;
-use App\Http\Controllers\AsignacionLlamadaController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\BancoController;
+use App\Http\Controllers\Api\EstadoCivilController;
+use App\Http\Controllers\Api\FichaController;
+use App\Http\Controllers\Api\NovedadController;
+use App\Http\Controllers\Api\NotificacionController;
+use App\Http\Controllers\Api\PersonaController;
+use App\Http\Controllers\Api\PromotorController;
+use App\Http\Controllers\Api\ProvinciaLocalidadController;
+use App\Http\Controllers\Api\SolicitudController;
+use App\Http\Controllers\Api\TarjetaController;
+use App\Http\Controllers\Api\TipoPagoController;
+use App\Http\Controllers\Api\TipoSolicitudController;
+use App\Http\Controllers\Api\VinculoController;
 use App\Http\Controllers\LdapController;
-// use App\Http\Controllers\Api\RutaController;
-// use App\Http\Controllers\Api\AsignacionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,75 +44,7 @@ Route::prefix('auth')->group(function () {
 
 // Rutas protegidas con autenticación
 Route::middleware('auth:sanctum')->group(function () {
-    
-    // Gestión de clientes
-    Route::prefix('clientes')->group(function () {
-        Route::get('/', [ClienteController::class, 'index']);
-        Route::post('/', [ClienteController::class, 'store']);
-        
-        // Rutas específicas (deben ir antes de las rutas con parámetros dinámicos)
-        Route::get('convenios', [ClienteController::class, 'convenios']);
-        Route::get('config', [ClienteController::class, 'config']);
-        Route::post('importar-excel', [ClienteController::class, 'importarExcel']);
-        Route::get('carga-excel/{carga}', [ClienteController::class, 'estadoCarga']);
-        Route::get('ultima-carga', [ClienteController::class, 'ultimaCarga']);
-        Route::post('sincronizar-tarjetas', [ClienteController::class, 'sincronizarTarjetas']);
-        Route::post('sincronizar-individuales', [ClienteController::class, 'sincronizarIndividuales']);
 
-        // Rutas con parámetros dinámicos (deben ir al final)
-        Route::get('{cliente}', [ClienteController::class, 'show']);
-        Route::put('{cliente}', [ClienteController::class, 'update']);
-        Route::delete('{cliente}', [ClienteController::class, 'destroy']);
-    });
-    
-    // Geocodificación con Google Maps
-    Route::prefix('geocoding')->group(function () {
-        Route::post('/', [GeocodingController::class, 'geocodificar']);
-        Route::get('estadisticas', [GeocodingController::class, 'estadisticas']);
-        Route::post('cliente/{cliente}', [GeocodingController::class, 'geocodificarCliente']);
-        Route::put('cliente/{cliente}/manual', [GeocodingController::class, 'marcarComoManual']);
-        Route::put('cliente/{cliente}/resetear', [GeocodingController::class, 'resetearEstado']);
-    });
-    
-    // TODO: Gestión de rutas - comentado temporalmente
-    /*
-    Route::prefix('rutas')->group(function () {
-        Route::get('/', [RutaController::class, 'index']);
-        Route::post('/', [RutaController::class, 'store']);
-        Route::get('{ruta}', [RutaController::class, 'show']);
-        Route::put('{ruta}', [RutaController::class, 'update']);
-        Route::delete('{ruta}', [RutaController::class, 'destroy']);
-        
-        // Asignaciones de una ruta específica
-        Route::get('{ruta}/asignaciones', [RutaController::class, 'asignaciones']);
-        Route::post('{ruta}/asignaciones', [AsignacionController::class, 'store']);
-        Route::put('{ruta}/reordenar', [AsignacionController::class, 'reordenar']);
-    });
-    
-    // Gestión de asignaciones individuales
-    Route::prefix('asignaciones')->group(function () {
-        Route::get('{asignacion}', [AsignacionController::class, 'show']);
-        Route::put('{asignacion}', [AsignacionController::class, 'update']);
-        Route::delete('{asignacion}', [AsignacionController::class, 'destroy']);
-        
-        // Registrar visita (para móvil)
-        Route::post('{asignacion}/visita', [AsignacionController::class, 'registrarVisita']);
-    });
-    */
-    
-    // Cobradores
-    Route::get('cobradores', [AuthController::class, 'cobradores']);
-    
-    // Gestión de usuarios (solo admin)
-    Route::prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::get('roles', [UserController::class, 'getRoles']);
-        Route::get('{user}', [UserController::class, 'show']);
-        Route::put('{user}', [UserController::class, 'update']);
-        Route::post('{user}/toggle-active', [UserController::class, 'toggleActive']);
-        Route::post('{user}/toggle-blocked', [UserController::class, 'toggleBlocked']);
-    });
-    
     // LDAP (solo admin)
     Route::prefix('ldap')->group(function () {
         Route::post('search', [LdapController::class, 'searchUsers']);
@@ -115,52 +52,78 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('import-multiple', [LdapController::class, 'importMultipleUsers']);
         Route::post('sync/{user}', [LdapController::class, 'syncUser']);
     });
-    
-    // Gestión de llamadas telefónicas
-    Route::prefix('llamadas')->group(function () {
-        Route::get('/', [LlamadaController::class, 'index']);
-        Route::post('/', [LlamadaController::class, 'store']);
-        Route::get('estados', [LlamadaController::class, 'estadosLlamada']);
-        Route::get('usuarios-llamadores', [LlamadaController::class, 'usuariosLlamadores']);
-        Route::get('periodo-actual', [LlamadaController::class, 'periodoActual']);
-        Route::get('clientes-para-llamar', [LlamadaController::class, 'clientesParaLlamar']);
-        
-        // Endpoints específicos para llamadores
-        Route::get('mis-clientes-para-llamar', [LlamadaController::class, 'misClientesParaLlamar']);
-        Route::get('mis-llamadas', [LlamadaController::class, 'misLlamadas']);
-        Route::get('mis-estadisticas', [LlamadaController::class, 'misEstadisticas']);
-        
-        // Endpoints específicos para administradores
-        Route::get('estadisticas-generales', [LlamadaController::class, 'estadisticasGenerales']);
-        
-        // Endpoint temporal para debugear datos
-        Route::get('debug-datos', [LlamadaController::class, 'debugDatos']);
-        
-        // Endpoint temporal para crear datos de prueba
-        Route::post('crear-llamadas-prueba', [LlamadaController::class, 'crearLlamadasPrueba']);
-        
-        Route::post('tomar-cliente', [LlamadaController::class, 'tomarCliente']);
-        Route::get('{llamada}', [LlamadaController::class, 'show']);
-        Route::put('{llamada}', [LlamadaController::class, 'update']);
-        Route::delete('{llamada}', [LlamadaController::class, 'destroy']);
-    });
-    
-    // Gestión de asignaciones de llamadas
-    Route::prefix('asignaciones-llamadas')->group(function () {
-        Route::get('/', [AsignacionLlamadaController::class, 'index']);
-        Route::get('resumen', [AsignacionLlamadaController::class, 'resumenAsignaciones']);
-        Route::post('asignar-automatico', [AsignacionLlamadaController::class, 'asignarAutomatico']);
-        Route::get('llamadores-disponibles', [AsignacionLlamadaController::class, 'llamadoresDisponibles']);
-        Route::get('estadisticas-llamador', [AsignacionLlamadaController::class, 'estadisticasLlamador']);
-        Route::put('{asignacion}/reasignar', [AsignacionLlamadaController::class, 'reasignar']);
-        Route::put('{asignacion}/cancelar', [AsignacionLlamadaController::class, 'cancelar']);
+
+    // Novedades
+    Route::prefix('novedades')->group(function () {
+        Route::get('/', [NovedadController::class, 'index']);
+        Route::get('/activas', [NovedadController::class, 'activas']);
+        Route::post('/', [NovedadController::class, 'store']);
+        Route::get('/{novedad}', [NovedadController::class, 'show']);
+        Route::put('/{novedad}', [NovedadController::class, 'update']);
+        Route::delete('/{novedad}', [NovedadController::class, 'destroy']);
+        Route::post('/{novedad}/toggle-activa', [NovedadController::class, 'toggleActiva']);
     });
 
-    // Gestión de configuración (solo admin)
-    Route::prefix('configuracion')->group(function () {
-        Route::get('/', [ConfiguracionController::class, 'index']);
-        Route::put('{id}', [ConfiguracionController::class, 'update']);
+    // Notificaciones
+    Route::prefix('notificaciones')->group(function () {
+        Route::get('/', [NotificacionController::class, 'index']);
+        Route::get('/no-leidas', [NotificacionController::class, 'noLeidas']);
+        Route::get('/contar-no-leidas', [NotificacionController::class, 'contarNoLeidas']);
+        Route::post('/', [NotificacionController::class, 'store']);
+        Route::post('/marcar-todas-leidas', [NotificacionController::class, 'marcarTodasLeidas']);
+        Route::get('/{notificacion}', [NotificacionController::class, 'show']);
+        Route::post('/{notificacion}/marcar-leida', [NotificacionController::class, 'marcarLeida']);
+        Route::delete('/{notificacion}', [NotificacionController::class, 'destroy']);
     });
+
+    // Tipos de Solicitud
+    Route::prefix('tipos-solicitud')->group(function () {
+        Route::get('/activos', [TipoSolicitudController::class, 'activos']);
+    });
+
+    // Solicitudes
+    Route::prefix('solicitudes')->group(function () {
+        Route::get('/codigos', [SolicitudController::class, 'codigos']);
+        Route::get('/listado', [SolicitudController::class, 'listado']);
+    });
+
+    // Tipos de Pago
+    Route::prefix('tipos-pago')->group(function () {
+        Route::get('/', [TipoPagoController::class, 'tiposPagos']);
+    });
+
+    // Tarjetas
+    Route::prefix('tarjetas')->group(function () {
+        Route::get('/', [TarjetaController::class, 'tarjetas']);
+    });
+
+    // Bancos
+    Route::prefix('bancos')->group(function () {
+        Route::get('/', [BancoController::class, 'bancos']);
+    });
+
+    // Estados Civiles
+    Route::prefix('estados-civiles')->group(function () {
+        Route::get('/', [EstadoCivilController::class, 'estadosCiviles']);
+    });
+
+    // Provincias, Localidades y Países
+    Route::get('/provincias', [ProvinciaLocalidadController::class, 'provincias']);
+    Route::get('/localidades', [ProvinciaLocalidadController::class, 'localidades']);
+    Route::get('/paises', [ProvinciaLocalidadController::class, 'paises']);
+    Route::get('/vinculos', [VinculoController::class, 'listar']);
+
+    // Personas - Búsqueda en Padrón
+    Route::get('/personas/buscar/{dni_cuil}', [PersonaController::class, 'buscar']);
+
+    // Fichas - Búsqueda
+    Route::get('/fichas/certificado/{numero}', [FichaController::class, 'certificado']);
+    Route::get('/fichas/persona/{dni}', [FichaController::class, 'buscarPorDni']);
+
+    // Promotores
+    Route::get('/promotores', [PromotorController::class, 'listar']);
+    Route::get('/promotores/buscar', [PromotorController::class, 'buscar']);
+    Route::get('/promotores/buscar-legajo/{legajo}', [PromotorController::class, 'buscarPorLegajo']);
 });
 
 // Ruta de fallback para manejo de errores 404

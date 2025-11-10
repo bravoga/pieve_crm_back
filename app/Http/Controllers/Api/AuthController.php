@@ -9,14 +9,78 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use OpenApi\Attributes as OA;
 
+#[OA\Tag(name: "Autenticación", description: "Endpoints de autenticación y gestión de sesiones")]
 class AuthController extends Controller
 {
-    /**
-     * Inicio de sesión con email y password
-     */
-
-
+    #[OA\Post(
+        path: "/auth/login",
+        tags: ["Autenticación"],
+        summary: "Iniciar sesión",
+        description: "Autentica un usuario usando username (samaccountname) y password. Retorna un token JWT válido por 30 días.",
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["username", "password", "device"],
+                properties: [
+                    new OA\Property(property: "username", type: "string", example: "usuario123"),
+                    new OA\Property(property: "password", type: "string", format: "password", example: "password123"),
+                    new OA\Property(property: "device", type: "string", example: "web-browser")
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Inicio de sesión exitoso",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Inicio de sesión exitoso"),
+                        new OA\Property(property: "token", type: "string", example: "1|abcdef123456..."),
+                        new OA\Property(
+                            property: "user",
+                            properties: [
+                                new OA\Property(property: "id", type: "integer", example: 1),
+                                new OA\Property(property: "name", type: "string", example: "Juan Pérez"),
+                                new OA\Property(property: "email", type: "string", example: "juan@example.com"),
+                                new OA\Property(property: "role", type: "string", example: "cobrador"),
+                                new OA\Property(property: "active", type: "boolean", example: true)
+                            ],
+                            type: "object"
+                        )
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: "Credenciales incorrectas",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Credenciales incorrectas")
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: "Usuario bloqueado",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Usuario bloqueado, comunicarse con sistemas")
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: "Usuario no encontrado",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Usuario no encontrado")
+                    ]
+                )
+            )
+        ]
+    )]
     public function login(Request $request)
     {
         $request->validate([
@@ -136,9 +200,24 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Cerrar sesión
-     */
+    #[OA\Post(
+        path: "/auth/logout",
+        tags: ["Autenticación"],
+        summary: "Cerrar sesión",
+        description: "Revoca el token actual del usuario autenticado",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Sesión cerrada exitosamente",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "message", type: "string", example: "Sesión cerrada exitosamente")
+                    ]
+                )
+            )
+        ]
+    )]
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
@@ -148,9 +227,35 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Verificar estado de autenticación
-     */
+    #[OA\Get(
+        path: "/auth/check",
+        tags: ["Autenticación"],
+        summary: "Verificar estado de autenticación",
+        description: "Verifica si el token es válido y retorna información básica del usuario",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Usuario autenticado",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "authenticated", type: "boolean", example: true),
+                        new OA\Property(
+                            property: "user",
+                            properties: [
+                                new OA\Property(property: "id", type: "integer", example: 1),
+                                new OA\Property(property: "name", type: "string", example: "Juan Pérez"),
+                                new OA\Property(property: "email", type: "string", example: "juan@example.com"),
+                                new OA\Property(property: "role", type: "string", example: "collector"),
+                                new OA\Property(property: "active", type: "boolean", example: true)
+                            ],
+                            type: "object"
+                        )
+                    ]
+                )
+            )
+        ]
+    )]
     public function check(Request $request): JsonResponse
     {
         return response()->json([
@@ -165,9 +270,34 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Obtener información del usuario autenticado
-     */
+    #[OA\Get(
+        path: "/auth/user",
+        tags: ["Autenticación"],
+        summary: "Obtener información del usuario autenticado",
+        description: "Retorna la información completa del usuario actualmente autenticado",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Información del usuario",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: "user",
+                            properties: [
+                                new OA\Property(property: "id", type: "integer", example: 1),
+                                new OA\Property(property: "name", type: "string", example: "Juan Pérez"),
+                                new OA\Property(property: "email", type: "string", example: "juan@example.com"),
+                                new OA\Property(property: "role", type: "string", example: "collector"),
+                                new OA\Property(property: "active", type: "boolean", example: true)
+                            ],
+                            type: "object"
+                        )
+                    ]
+                )
+            )
+        ]
+    )]
     public function user(Request $request): JsonResponse
     {
         return response()->json([

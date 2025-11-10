@@ -13,8 +13,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            EstadosLlamadaSeeder::class
-        ]);
+        // Crear usuarios de prueba si es necesario
+         $this->call([
+             NovedadesSeeder::class,
+             NotificacionesSeeder::class,
+         ]);
     }
 }

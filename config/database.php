@@ -136,6 +136,18 @@ return [
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
+        'sqlGPIEVEOPE' => [ //Sueldo y jornales Salud -- Produccion
+            'driver' => 'sqlsrv',
+            'host' => '10.0.0.252',
+            'port' => '1433',
+            'database' => 'SaludOpe',
+            'username' => 'sa',
+            'password' => 'xml746',
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+
+        ],
 
     ],
 

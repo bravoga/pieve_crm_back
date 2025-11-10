@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer require \"darkaonline/l5-swagger\")",
+      "Bash(php artisan l5-swagger:generate)",
+      "Bash(dir storageapi-docs)",
+      "Bash(dir \"storage\\api-docs\")",
+      "Bash(php artisan tinker --execute=\"print_r(\\App\\Models\\Promotor::first());\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
